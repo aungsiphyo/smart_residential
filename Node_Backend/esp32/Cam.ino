@@ -9,7 +9,7 @@ const char* WIFI_PASSWORD = "0995138020";
 
 // ================= BACKEND =================
 const char* SCAN_ENDPOINT =
-    "https://smart-residential.onrender.com/api/qr-scan";
+    "https://54.87.203.253.sslip.io/api/qr-scan";
 
 // ================= QR READER =================
 ESP32QRCodeReader reader(CAMERA_MODEL_AI_THINKER);
