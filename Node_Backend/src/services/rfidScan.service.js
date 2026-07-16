@@ -33,9 +33,15 @@ async function findResidentRoom(resident) {
 function getScanInput(data = {}) {
   return {
     cardCode: String(
-      data.cardCode || data.residentUid || data.resident_uid || data.visitor_uid || "",
+      data.cardCode ||
+        data.residentUid ||
+        data.resident_uid ||
+        data.visitor_uid ||
+        "",
     ).trim(),
-    hardwareUid: normalizeRfidUid(data.hardwareUid || data.rfidUid || data.rfid_uid),
+    hardwareUid: normalizeRfidUid(
+      data.hardwareUid || data.rfidUid || data.rfid_uid,
+    ),
     source: String(data.source || "rfid_scan").trim(),
     scannedAt: new Date().toISOString(),
   };
@@ -65,7 +71,7 @@ async function validateRfidScan(data = {}) {
   if (hardwareUid) residentQuery.push({ rfid_uid: hardwareUid });
 
   const resident = await User.findOne({
-    role: "Citizen",
+    role: "Resident",
     $or: residentQuery,
   })
     .select("_id resident_uid rfid_uid fullname email phone role room_id")
@@ -90,7 +96,9 @@ async function validateRfidScan(data = {}) {
         valid: true,
         personType: "visitor",
         matchType:
-          hardwareUid && visitor.rfid_uid === hardwareUid ? "hardwareUid" : "cardCode",
+          hardwareUid && visitor.rfid_uid === hardwareUid
+            ? "hardwareUid"
+            : "cardCode",
         cardCode: cardCode || null,
         hardwareUid: hardwareUid || null,
         source,
@@ -148,7 +156,9 @@ async function validateRfidScan(data = {}) {
     valid: true,
     personType: "resident",
     matchType:
-      hardwareUid && resident.rfid_uid === hardwareUid ? "hardwareUid" : "cardCode",
+      hardwareUid && resident.rfid_uid === hardwareUid
+        ? "hardwareUid"
+        : "cardCode",
     cardCode: cardCode || null,
     hardwareUid: hardwareUid || null,
     source,
@@ -191,7 +201,9 @@ function emitRfidScan(io, payload) {
 async function saveRfidScanLog(raw = {}, result = {}) {
   const payload = result.eventPayload || result.response || {};
   const response = result.response || payload;
-  const scannedAt = payload.scannedAt ? new Date(payload.scannedAt) : new Date();
+  const scannedAt = payload.scannedAt
+    ? new Date(payload.scannedAt)
+    : new Date();
 
   const log = await RfidScanLog.create({
     valid: Boolean(payload.valid),

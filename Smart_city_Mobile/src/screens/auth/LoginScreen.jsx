@@ -65,7 +65,10 @@ export default function LoginScreen({ navigation }) {
         room_number: res.user.room_number,
       });
     } catch (err) {
-      Alert.alert('Verification failed', err.message || 'Invalid or expired OTP.');
+      Alert.alert(
+        'Verification failed',
+        err.message || 'Invalid or expired OTP.',
+      );
     } finally {
       setLoading(false);
     }
@@ -74,24 +77,40 @@ export default function LoginScreen({ navigation }) {
   return (
     <KeyboardAvoidingView
       style={[styles.root, { backgroundColor: theme.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 40 }]}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={[styles.logoWrap, { backgroundColor: theme.primary }]}>
           <Ionicons name="business" size={32} color={theme.primaryText} />
         </View>
-        <Text style={[styles.title, { color: theme.text }]}>Smart Residential</Text>
+        <Text style={[styles.title, { color: theme.text }]}>Prime City</Text>
         <Text style={[styles.subtitle, { color: theme.subtext }]}>
-          {otpSent ? 'Enter the OTP sent to your email' : 'Sign in with your resident account'}
+          {otpSent
+            ? 'Enter the OTP sent to your email'
+            : 'Sign in with your resident account'}
         </Text>
 
         <View style={styles.form}>
           {!otpSent ? (
             <>
-              <Text style={[styles.label, { color: theme.subtext }]}>Email</Text>
-              <View style={[styles.inputWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
-                <Ionicons name="mail-outline" size={18} color={theme.inactive} style={styles.inputIcon} />
+              <Text style={[styles.label, { color: theme.subtext }]}>
+                Email
+              </Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  { backgroundColor: theme.input, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={theme.inactive}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
                   placeholder="Enter email"
@@ -103,9 +122,21 @@ export default function LoginScreen({ navigation }) {
                 />
               </View>
 
-              <Text style={[styles.label, { color: theme.subtext }]}>Password</Text>
-              <View style={[styles.inputWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
-                <Ionicons name="lock-closed-outline" size={18} color={theme.inactive} style={styles.inputIcon} />
+              <Text style={[styles.label, { color: theme.subtext }]}>
+                Password
+              </Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  { backgroundColor: theme.input, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={18}
+                  color={theme.inactive}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
                   placeholder="Enter password"
@@ -114,7 +145,10 @@ export default function LoginScreen({ navigation }) {
                   secureTextEntry={!showPassword}
                   placeholderTextColor={theme.inactive}
                 />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  hitSlop={8}
+                >
                   <Ionicons
                     name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={18}
@@ -126,30 +160,56 @@ export default function LoginScreen({ navigation }) {
               <TouchableOpacity
                 style={styles.forgotPasswordContainer}
                 onPress={() => navigation.navigate('ForgotPassword')}
-                activeOpacity={0.7}>
-                <Text style={[styles.forgotPasswordText, { color: theme.primary }]}>Forgot Password?</Text>
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[styles.forgotPasswordText, { color: theme.primary }]}
+                >
+                  Forgot Password?
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: theme.primary }]}
                 onPress={onContinue}
                 disabled={loading}
-                activeOpacity={0.85}>
+                activeOpacity={0.85}
+              >
                 {loading ? (
                   <ActivityIndicator color={theme.primaryText} />
                 ) : (
                   <>
-                    <Text style={[styles.buttonText, { color: theme.primaryText }]}>Continue</Text>
-                    <Ionicons name="arrow-forward" size={18} color={theme.primaryText} />
+                    <Text
+                      style={[styles.buttonText, { color: theme.primaryText }]}
+                    >
+                      Continue
+                    </Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={18}
+                      color={theme.primaryText}
+                    />
                   </>
                 )}
               </TouchableOpacity>
             </>
           ) : (
             <>
-              <Text style={[styles.label, { color: theme.subtext }]}>OTP code</Text>
-              <View style={[styles.inputWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
-                <Ionicons name="key-outline" size={18} color={theme.inactive} style={styles.inputIcon} />
+              <Text style={[styles.label, { color: theme.subtext }]}>
+                OTP code
+              </Text>
+              <View
+                style={[
+                  styles.inputWrap,
+                  { backgroundColor: theme.input, borderColor: theme.border },
+                ]}
+              >
+                <Ionicons
+                  name="key-outline"
+                  size={18}
+                  color={theme.inactive}
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   style={[styles.input, { color: theme.text }]}
                   placeholder="6-digit code"
@@ -165,13 +225,22 @@ export default function LoginScreen({ navigation }) {
                 style={[styles.button, { backgroundColor: theme.primary }]}
                 onPress={onVerifyOtp}
                 disabled={loading}
-                activeOpacity={0.85}>
+                activeOpacity={0.85}
+              >
                 {loading ? (
                   <ActivityIndicator color={theme.primaryText} />
                 ) : (
                   <>
-                    <Text style={[styles.buttonText, { color: theme.primaryText }]}>Verify & sign in</Text>
-                    <Ionicons name="checkmark" size={18} color={theme.primaryText} />
+                    <Text
+                      style={[styles.buttonText, { color: theme.primaryText }]}
+                    >
+                      Verify & sign in
+                    </Text>
+                    <Ionicons
+                      name="checkmark"
+                      size={18}
+                      color={theme.primaryText}
+                    />
                   </>
                 )}
               </TouchableOpacity>
@@ -181,8 +250,11 @@ export default function LoginScreen({ navigation }) {
                 onPress={() => {
                   setOtpSent(false);
                   setOtp('');
-                }}>
-                <Text style={[styles.backLinkText, { color: theme.primary }]}>Use a different account</Text>
+                }}
+              >
+                <Text style={[styles.backLinkText, { color: theme.primary }]}>
+                  Use a different account
+                </Text>
               </TouchableOpacity>
             </>
           )}
@@ -203,7 +275,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  title: { fontSize: 28, fontWeight: '700', letterSpacing: -0.5, marginBottom: 8 },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  },
   subtitle: { fontSize: 15, lineHeight: 22, marginBottom: 32 },
   form: { gap: 4 },
   label: { fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 12 },

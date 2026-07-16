@@ -32,7 +32,7 @@ export default function TopBar({ navigation, variant = 'main', title }) {
             <View style={[styles.logoIcon, { backgroundColor: theme.primary }]}>
               <Ionicons name="business" size={16} color={theme.primaryText} />
             </View>
-            <Text style={[styles.logo, { color: theme.text }]}>SmartRes</Text>
+            <Text style={[styles.logo, { color: theme.text }]}>PrimeCity</Text>
           </View>
         )}
 

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Animated,
   View,
@@ -24,7 +30,12 @@ import { fetchProfile } from '../../api/profile';
 
 const QUICK_ACTIONS = [
   { id: 'bills', label: 'Bills', icon: 'receipt-outline', screen: 'Bills' },
-  { id: 'helpers', label: 'Helpers', icon: 'people-outline', screen: 'Helpers' },
+  {
+    id: 'helpers',
+    label: 'Helpers',
+    icon: 'people-outline',
+    screen: 'Helpers',
+  },
   {
     id: 'visitor',
     label: 'Visitor',
@@ -101,7 +112,7 @@ function AdvertisementCarousel({ advertisements, loading }) {
     if (visibleAdvertisements.length < 2) return undefined;
 
     const timer = setInterval(() => {
-      setActiveIndex((currentIndex) => {
+      setActiveIndex(currentIndex => {
         const nextIndex = currentIndex + 1;
 
         if (nextIndex < visibleAdvertisements.length) {
@@ -113,8 +124,9 @@ function AdvertisementCarousel({ advertisements, loading }) {
         }
 
         if (advertisements.length > AD_WINDOW_SIZE) {
-          setWindowStart((currentStart) =>
-            (currentStart + AD_WINDOW_SIZE) % advertisements.length,
+          setWindowStart(
+            currentStart =>
+              (currentStart + AD_WINDOW_SIZE) % advertisements.length,
           );
         } else {
           listRef.current?.scrollToOffset({ offset: 0, animated: true });
@@ -127,16 +139,23 @@ function AdvertisementCarousel({ advertisements, loading }) {
     return () => clearInterval(timer);
   }, [advertisements.length, snapWidth, visibleAdvertisements.length]);
 
-  const onMomentumEnd = (event) => {
+  const onMomentumEnd = event => {
     const offset = event.nativeEvent.contentOffset.x;
     const nextIndex = Math.round(offset / snapWidth);
-    setActiveIndex(Math.max(0, Math.min(nextIndex, visibleAdvertisements.length - 1)));
+    setActiveIndex(
+      Math.max(0, Math.min(nextIndex, visibleAdvertisements.length - 1)),
+    );
   };
 
   if (loading) {
     return (
       <View style={styles.adsSection}>
-        <View style={[styles.adSkeleton, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.adSkeleton,
+            { backgroundColor: theme.card, borderColor: theme.border },
+          ]}
+        >
           <ActivityIndicator color={theme.primary} />
         </View>
       </View>
@@ -148,17 +167,21 @@ function AdvertisementCarousel({ advertisements, loading }) {
   return (
     <View style={styles.adsSection}>
       <View style={styles.adsHeader}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Advertisements</Text>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>
+          Advertisements
+        </Text>
         <Text style={[styles.adsCount, { color: theme.subtext }]}>
           {activeIndex + 1}/{visibleAdvertisements.length}
-          {advertisements.length > AD_WINDOW_SIZE ? ` · ${advertisements.length} total` : ''}
+          {advertisements.length > AD_WINDOW_SIZE
+            ? ` · ${advertisements.length} total`
+            : ''}
         </Text>
       </View>
       <Animated.FlatList
         ref={listRef}
         data={visibleAdvertisements}
         extraData={windowStart}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={snapWidth}
@@ -198,16 +221,21 @@ function AdvertisementCarousel({ advertisements, loading }) {
                   backgroundColor: theme.card,
                   borderColor: theme.border,
                 },
-              ]}>
+              ]}
+            >
               {showImage ? (
                 <ImageBackground
                   source={{ uri: item.imageUrl }}
                   style={styles.adImage}
                   resizeMode="cover"
                   onError={() =>
-                    setFailedImages((current) => ({ ...current, [item.id]: true }))
+                    setFailedImages(current => ({
+                      ...current,
+                      [item.id]: true,
+                    }))
                   }
-                  imageStyle={styles.adImageStyle}>
+                  imageStyle={styles.adImageStyle}
+                >
                   <View style={styles.adImageOverlay}>
                     <View style={styles.adContent}>
                       <Text style={styles.adCompany} numberOfLines={1}>
@@ -224,17 +252,38 @@ function AdvertisementCarousel({ advertisements, loading }) {
                 </ImageBackground>
               ) : (
                 <View style={styles.adFallback}>
-                  <View style={[styles.adFallbackIcon, { backgroundColor: theme.primary + '18' }]}>
-                    <Ionicons name="image-outline" size={26} color={theme.primary} />
+                  <View
+                    style={[
+                      styles.adFallbackIcon,
+                      { backgroundColor: theme.primary + '18' },
+                    ]}
+                  >
+                    <Ionicons
+                      name="image-outline"
+                      size={26}
+                      color={theme.primary}
+                    />
                   </View>
                   <View style={styles.adFallbackCopy}>
-                    <Text style={[styles.adFallbackCompany, { color: theme.subtext }]} numberOfLines={1}>
+                    <Text
+                      style={[
+                        styles.adFallbackCompany,
+                        { color: theme.subtext },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {item.companyName || 'Sponsored'}
                     </Text>
-                    <Text style={[styles.adFallbackTitle, { color: theme.text }]} numberOfLines={2}>
+                    <Text
+                      style={[styles.adFallbackTitle, { color: theme.text }]}
+                      numberOfLines={2}
+                    >
                       {item.title}
                     </Text>
-                    <Text style={[styles.adFallbackText, { color: theme.subtext }]} numberOfLines={2}>
+                    <Text
+                      style={[styles.adFallbackText, { color: theme.subtext }]}
+                      numberOfLines={2}
+                    >
                       {item.content}
                     </Text>
                   </View>
@@ -248,7 +297,8 @@ function AdvertisementCarousel({ advertisements, loading }) {
               activeOpacity={item.linkUrl ? 0.9 : 1}
               disabled={!item.linkUrl}
               onPress={() => Linking.openURL(item.linkUrl).catch(() => null)}
-              style={styles.adTouchable}>
+              style={styles.adTouchable}
+            >
               {card}
             </TouchableOpacity>
           );
@@ -262,7 +312,8 @@ function AdvertisementCarousel({ advertisements, loading }) {
               styles.adDot,
               activeIndex === index ? styles.adDotActive : styles.adDotInactive,
               {
-                backgroundColor: activeIndex === index ? theme.primary : theme.border,
+                backgroundColor:
+                  activeIndex === index ? theme.primary : theme.border,
               },
             ]}
           />
@@ -282,11 +333,14 @@ export default function HomeScreen({ navigation }) {
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [loadingAdvertisements, setLoadingAdvertisements] = useState(true);
   const displayName =
-    user?.fullname?.trim() || user?.name?.trim() || user?.email?.split('@')[0] || 'Resident';
+    user?.fullname?.trim() ||
+    user?.name?.trim() ||
+    user?.email?.split('@')[0] ||
+    'Resident';
   const roomNumber = user?.room_number || null;
   const residenceLabel = roomNumber
     ? `Unit ${roomNumber} · Smart Residential`
-    : 'Smart Residential';
+    : 'Resident';
   const timeGreeting = getTimeGreeting(currentTime);
   const quickActions =
     user?.role === 'Admin'
@@ -323,7 +377,7 @@ export default function HomeScreen({ navigation }) {
     try {
       const data = await fetchAnnouncements({ limit: 5 });
       setAnnouncements(
-        data.map((item) => ({
+        data.map(item => ({
           id: item._id,
           title: item.title,
           message: item.message,
@@ -422,11 +476,22 @@ export default function HomeScreen({ navigation }) {
 
             <Card style={styles.reportCard}>
               <View style={styles.reportRow}>
-                <View style={[styles.reportIcon, { backgroundColor: theme.warningBg }]}>
-                  <Ionicons name="document-text-outline" size={22} color={theme.warning} />
+                <View
+                  style={[
+                    styles.reportIcon,
+                    { backgroundColor: theme.warningBg },
+                  ]}
+                >
+                  <Ionicons
+                    name="document-text-outline"
+                    size={22}
+                    color={theme.warning}
+                  />
                 </View>
                 <View style={styles.reportCopy}>
-                  <Text style={[styles.reportTitle, { color: theme.text }]}>Submit a report</Text>
+                  <Text style={[styles.reportTitle, { color: theme.text }]}>
+                    Submit a report
+                  </Text>
                   <Text style={[styles.reportSub, { color: theme.subtext }]}>
                     Maintenance, security, or community issues
                   </Text>
@@ -435,9 +500,18 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 style={[styles.reportBtn, { backgroundColor: theme.primary }]}
                 onPress={() => navigateTo('ReportIssue')}
-                activeOpacity={0.85}>
-                <Ionicons name="send-outline" size={17} color={theme.primaryText} />
-                <Text style={[styles.reportBtnText, { color: theme.primaryText }]}>Report now</Text>
+                activeOpacity={0.85}
+              >
+                <Ionicons
+                  name="send-outline"
+                  size={17}
+                  color={theme.primaryText}
+                />
+                <Text
+                  style={[styles.reportBtnText, { color: theme.primaryText }]}
+                >
+                  Report now
+                </Text>
               </TouchableOpacity>
             </Card>
 
@@ -454,7 +528,11 @@ export default function HomeScreen({ navigation }) {
           ) : (
             <Card>
               <View style={styles.emptyRow}>
-                <Ionicons name="megaphone-outline" size={20} color={theme.inactive} />
+                <Ionicons
+                  name="megaphone-outline"
+                  size={20}
+                  color={theme.inactive}
+                />
                 <Text style={[styles.emptyText, { color: theme.subtext }]}>
                   No announcements yet
                 </Text>
@@ -494,7 +572,6 @@ export default function HomeScreen({ navigation }) {
           );
         }}
       />
-
     </ScreenContainer>
   );
 }
