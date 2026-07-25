@@ -3,7 +3,7 @@ import { apiRequest } from '../api/client';
 
 let conversationId = null;
 const FALLBACK_ERROR_MESSAGE =
-  'AI assistant ချိတ်ဆက်မရသေးပါ။ Backend/Ollama connection ကိုစစ်ပါ။';
+  'AI assistant ချိတ်ဆက်မရသေးပါ။ API connection ကိုစစ်ပါ။';
 
 function createMessage(role, content, extras = {}) {
   return {
@@ -75,6 +75,28 @@ export async function sendMessage(text, options = {}) {
     toolCalls: data.toolCalls ?? assistantMessage.toolCalls ?? [],
     knowledgeSources,
     intent,
+  };
+}
+
+export async function sendVoiceMessage({ audioBase64, mimeType = 'audio/m4a' }) {
+  if (!audioBase64) {
+    throw new Error('audioBase64 is required');
+  }
+
+  const data = await apiRequest('/ai/voice', {
+    method: 'POST',
+    auth: true,
+    body: {
+      audioBase64,
+      mimeType,
+    },
+  });
+
+  return {
+    audioBase64: data.audioBase64,
+    audioMimeType: data.audioMimeType,
+    transcript: data.transcript,
+    model: data.meta?.model,
   };
 }
 
@@ -156,4 +178,4 @@ export function resetConversation() {
   conversationId = null;
 }
 
-export { createMessage, API_BASE_URL };
+export { createMessage, API_BASE_URL, sendVoiceMessage };
