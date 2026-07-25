@@ -4,8 +4,8 @@
 #include <ESP32QRCodeReader.h>
 
 // ================= WIFI =================
-const char* WIFI_SSID = "KoMyo";
-const char* WIFI_PASSWORD = "0995138020";
+const char* WIFI_SSID = "Redmi Note 13 Pro";
+const char* WIFI_PASSWORD = "11111111";
 
 // ================= BACKEND =================
 const char* SCAN_ENDPOINT =
