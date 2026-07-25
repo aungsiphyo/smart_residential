@@ -99,7 +99,7 @@ export default function useVoiceAssistant({
 
         // Play the AI response
         if (res.audioBase64) {
-          await playBase64Audio(res.audioBase64);
+          await playBase64Audio(res.audioBase64, res.audioMimeType);
         }
       } catch (apiErr) {
         if (onError && mountedRef.current) onError(apiErr.message);
@@ -112,11 +112,12 @@ export default function useVoiceAssistant({
     }
   }, [onVoiceResponse, onError]);
 
-  const playBase64Audio = async (base64String) => {
+  const playBase64Audio = async (base64String, mimeType = 'audio/wav') => {
     try {
+      const ext = mimeType === 'audio/mp3' ? 'mp3' : 'wav';
       const path = Platform.select({
-        ios: `${RNFS.DocumentDirectoryPath}/ai_response.m4a`,
-        android: `${RNFS.CachesDirectoryPath}/ai_response.mp4`,
+        ios: `${RNFS.DocumentDirectoryPath}/ai_response.${ext}`,
+        android: `${RNFS.CachesDirectoryPath}/ai_response.${ext}`,
       });
 
       await RNFS.writeFile(path, base64String, 'base64');

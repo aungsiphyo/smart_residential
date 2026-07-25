@@ -251,7 +251,11 @@ export default function FloatingChat() {
     isPlaying,
   } = useVoiceAssistant({
     onVoiceResponse: res => {
-      sendMessage('🎤 Voice Message', 'user', { sessionId: activeSessionId });
+      const userText = res.userTranscript && res.userTranscript !== '[Audio Processing Failed]' 
+        ? `🎤 ${res.userTranscript}` 
+        : '🎤 Voice Message';
+      sendMessage(userText, 'user', { sessionId: activeSessionId });
+      
       sendMessage(res.transcript || '🔊 Audio Response', 'bot', {
         sessionId: activeSessionId,
       });

@@ -96,6 +96,7 @@ export async function sendVoiceMessage({ audioBase64, mimeType = 'audio/m4a' }) 
     audioBase64: data.audioBase64,
     audioMimeType: data.audioMimeType,
     transcript: data.transcript,
+    userTranscript: data.userTranscript,
     model: data.meta?.model,
   };
 }
@@ -178,4 +179,4 @@ export function resetConversation() {
   conversationId = null;
 }
 
-export { createMessage, API_BASE_URL, sendVoiceMessage };
+export { createMessage, API_BASE_URL };
