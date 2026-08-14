@@ -1,158 +1,151 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, PermissionsAndroid, Platform } from 'react-native';
-import Voice from '@react-native-voice/voice';
-import Tts from 'react-native-tts';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import RNFS from 'react-native-fs';
+import { sendVoiceMessage } from '../services/chatService';
 
-const DEFAULT_VOICE_LOCALE = 'en-US';
-const VOICE_UNAVAILABLE_TITLE = 'Voice မရသေးပါ';
-const VOICE_UNAVAILABLE_MESSAGE =
-  'ဒီ emulator/device မှာ speech recognition service မရှိသေးပါ။ Google app/Google Speech Service ပါတဲ့ emulator သို့မဟုတ် phone နဲ့စမ်းပါ။ Text chat ကတော့ ဆက်သုံးလို့ရပါတယ်။';
-const MICROPHONE_DENIED_MESSAGE =
-  'Microphone permission မပေးထားလို့ voice command သုံးလို့မရသေးပါ။';
-
-function isVoiceAvailable(value) {
-  return value === true || value === 1 || value === '1';
-}
-
-async function requestAndroidMicrophonePermission() {
-  if (Platform.OS !== 'android') return true;
-
-  const result = await PermissionsAndroid.request(
-    PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-    {
-      title: 'Microphone permission',
-      message: 'SmartRes needs microphone access for voice commands.',
-      buttonPositive: 'Allow',
-      buttonNegative: 'Cancel',
-    },
-  );
-
-  return result === PermissionsAndroid.RESULTS.GRANTED;
-}
+const audioRecorderPlayer = new AudioRecorderPlayer();
+audioRecorderPlayer.setSubscriptionDuration(0.1);
 
 export default function useVoiceAssistant({
-  locale = DEFAULT_VOICE_LOCALE,
-  onSpeechText,
+  onVoiceResponse,
+  onError,
 } = {}) {
   const [listening, setListening] = useState(false);
-  const [voiceAvailable, setVoiceAvailable] = useState(null);
+  const [voiceAvailable, setVoiceAvailable] = useState(true);
   const [voiceError, setVoiceError] = useState('');
-  const mountedRef = useRef(false);
-  const onSpeechTextRef = useRef(onSpeechText);
-
-  useEffect(() => {
-    onSpeechTextRef.current = onSpeechText;
-  }, [onSpeechText]);
-
-  const checkVoiceAvailability = useCallback(async () => {
-    try {
-      const available = isVoiceAvailable(await Voice.isAvailable());
-
-      if (mountedRef.current) {
-        setVoiceAvailable(available);
-        setVoiceError(available ? '' : VOICE_UNAVAILABLE_MESSAGE);
-      }
-
-      return available;
-    } catch (err) {
-      if (mountedRef.current) {
-        setVoiceAvailable(false);
-        setVoiceError(VOICE_UNAVAILABLE_MESSAGE);
-      }
-
-      return false;
-    }
-  }, []);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
     mountedRef.current = true;
-
-    const handleSpeechText = event => {
-      const spokenText = event.value?.[0]?.trim();
-
-      if (spokenText) {
-        onSpeechTextRef.current?.(spokenText);
-      }
-    };
-
-    Voice.onSpeechPartialResults = handleSpeechText;
-    Voice.onSpeechResults = handleSpeechText;
-    Voice.onSpeechEnd = () => {
-      if (mountedRef.current) setListening(false);
-    };
-    Voice.onSpeechError = event => {
-      if (mountedRef.current) {
-        setListening(false);
-        setVoiceError(event?.error?.message || VOICE_UNAVAILABLE_MESSAGE);
-      }
-    };
-
-    checkVoiceAvailability();
-    Tts.setDefaultRate(0.48).catch(() => {});
-    Tts.setDefaultPitch(1).catch(() => {});
-
     return () => {
       mountedRef.current = false;
-      Voice.destroy().then(Voice.removeAllListeners).catch(() => {});
-      Tts.stop().catch(() => {});
+      audioRecorderPlayer.stopRecorder().catch(() => {});
+      audioRecorderPlayer.stopPlayer().catch(() => {});
     };
-  }, [checkVoiceAvailability]);
+  }, []);
+
+  const requestMicrophonePermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const grants = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        ]);
+        if (
+          grants['android.permission.RECORD_AUDIO'] ===
+          PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          return true;
+        } else {
+          return false;
+        }
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
 
   const startListening = useCallback(async () => {
-    try {
-      await Tts.stop();
-
-      const hasPermission = await requestAndroidMicrophonePermission();
-      if (!hasPermission) {
-        setVoiceError(MICROPHONE_DENIED_MESSAGE);
-        Alert.alert('Microphone permission', MICROPHONE_DENIED_MESSAGE);
-        return false;
-      }
-
-      const available =
-        voiceAvailable === null ? await checkVoiceAvailability() : voiceAvailable;
-      if (!available) {
-        Alert.alert(VOICE_UNAVAILABLE_TITLE, VOICE_UNAVAILABLE_MESSAGE);
-        return false;
-      }
-
-      setListening(true);
-      await Voice.start(locale);
-      setVoiceError('');
-      return true;
-    } catch (err) {
-      setListening(false);
-      await checkVoiceAvailability();
-      setVoiceError(VOICE_UNAVAILABLE_MESSAGE);
-      Alert.alert(VOICE_UNAVAILABLE_TITLE, VOICE_UNAVAILABLE_MESSAGE);
-      return false;
+    const hasPermission = await requestMicrophonePermission();
+    if (!hasPermission) {
+      Alert.alert('Permission Denied', 'Please grant microphone access to use voice chat.');
+      return;
     }
-  }, [checkVoiceAvailability, locale, voiceAvailable]);
+
+    try {
+      if (isPlaying) {
+        await audioRecorderPlayer.stopPlayer();
+        if (mountedRef.current) setIsPlaying(false);
+      }
+
+      const path = Platform.select({
+        ios: 'temp_record.m4a',
+        android: `${RNFS.CachesDirectoryPath}/temp_record.mp4`,
+      });
+
+      await audioRecorderPlayer.startRecorder(path);
+      if (mountedRef.current) {
+        setListening(true);
+        setVoiceError('');
+      }
+    } catch (err) {
+      if (mountedRef.current) {
+        setVoiceError(err.message);
+        setListening(false);
+      }
+    }
+  }, [isPlaying]);
 
   const stopListening = useCallback(async () => {
     try {
-      await Voice.stop();
-    } finally {
-      setListening(false);
-    }
-  }, []);
+      const resultPath = await audioRecorderPlayer.stopRecorder();
+      if (mountedRef.current) setListening(false);
 
-  const speak = useCallback(async text => {
-    const trimmed = String(text || '').trim();
+      // Read the recorded file and convert to base64
+      const base64 = await RNFS.readFile(resultPath, 'base64');
+      const mimeType = Platform.OS === 'ios' ? 'audio/m4a' : 'audio/mp4';
 
-    if (!trimmed) return;
+      try {
+        const res = await sendVoiceMessage({ audioBase64: base64, mimeType });
+        
+        if (onVoiceResponse && mountedRef.current) {
+          onVoiceResponse(res);
+        }
 
-    try {
-      await Tts.stop();
-      Tts.speak(trimmed);
+        // Play the AI response
+        if (res.audioBase64) {
+          await playBase64Audio(res.audioBase64, res.audioMimeType);
+        }
+      } catch (apiErr) {
+        if (onError && mountedRef.current) onError(apiErr.message);
+      }
     } catch (err) {
-      // Voice output is optional; text chat should keep working if TTS fails.
+      if (mountedRef.current) {
+        setListening(false);
+        setVoiceError(err.message);
+      }
     }
-  }, []);
+  }, [onVoiceResponse, onError]);
 
-  const stopSpeaking = useCallback(() => {
-    Tts.stop().catch(() => {});
-  }, []);
+  const playBase64Audio = async (base64String, mimeType = 'audio/wav') => {
+    try {
+      const ext = mimeType === 'audio/mp3' ? 'mp3' : 'wav';
+      const path = Platform.select({
+        ios: `${RNFS.DocumentDirectoryPath}/ai_response.${ext}`,
+        android: `${RNFS.CachesDirectoryPath}/ai_response.${ext}`,
+      });
+
+      await RNFS.writeFile(path, base64String, 'base64');
+
+      await audioRecorderPlayer.startPlayer(path);
+      if (mountedRef.current) setIsPlaying(true);
+
+      audioRecorderPlayer.addPlayBackListener((e) => {
+        if (e.currentPosition === e.duration || e.currentPosition < 0) {
+          audioRecorderPlayer.stopPlayer();
+          if (mountedRef.current) setIsPlaying(false);
+          audioRecorderPlayer.removePlayBackListener();
+        }
+      });
+    } catch (err) {
+      console.warn('Playback error', err);
+      if (mountedRef.current) setIsPlaying(false);
+    }
+  };
+
+  const stopSpeaking = useCallback(async () => {
+    try {
+      if (isPlaying) {
+        await audioRecorderPlayer.stopPlayer();
+        if (mountedRef.current) setIsPlaying(false);
+      }
+    } catch (e) {}
+  }, [isPlaying]);
 
   return {
     listening,
@@ -160,7 +153,7 @@ export default function useVoiceAssistant({
     voiceError,
     startListening,
     stopListening,
-    speak,
     stopSpeaking,
+    isPlaying,
   };
 }

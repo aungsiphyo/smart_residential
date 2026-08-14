@@ -1,8 +1,0 @@
-{
-  "name": "getParkingStatus",
-  "description": "Get current visitor and resident parking status",
-  "parameters": {
-    "type": "object",
-    "properties": {}
-  }
-}

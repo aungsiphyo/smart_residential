@@ -247,12 +247,25 @@ export default function FloatingChat() {
     voiceAvailable,
     startListening,
     stopListening,
-    speak,
     stopSpeaking,
+    isPlaying,
   } = useVoiceAssistant({
-    onSpeechText: spokenText => {
-      voiceReplyEnabledRef.current = true;
-      setText(spokenText);
+    onVoiceResponse: res => {
+      const userText = res.userTranscript && res.userTranscript !== '[Audio Processing Failed]' 
+        ? `🎤 ${res.userTranscript}` 
+        : '🎤 Voice Message';
+      sendMessage(userText, 'user', { sessionId: activeSessionId });
+      
+      sendMessage(res.transcript || '🔊 Audio Response', 'bot', {
+        sessionId: activeSessionId,
+      });
+      setSending(false);
+    },
+    onError: err => {
+      sendMessage(err || 'Failed to process voice.', 'bot', {
+        sessionId: activeSessionId,
+      });
+      setSending(false);
     },
   });
 
@@ -488,6 +501,7 @@ export default function FloatingChat() {
     if (sending) return;
 
     if (listening) {
+      setSending(true);
       stopListening();
       return;
     }
