@@ -1,8 +1,8 @@
 # Smart Residential Mobile
 
-Smart Residential Mobile is a React Native application for residents and administrators of a residential community. It brings announcements, visitor pre-registration, helper requests, issue reporting, emergency alerts, notifications, profile management, and an AI assistant into one mobile experience.
+Smart Residential Mobile is a React Native application for residents, staff, and administrators of the Prime City residential community. It brings billing, announcements, visitor pre-registration, helper requests, issue reporting, emergency alerts, realtime notifications, profile management, and a privacy-aware AI assistant into one mobile experience.
 
-The repository currently contains the Android and iOS client. The backend is hosted separately and must be available for most features to work.
+This repository contains the Android and iOS client. The Node.js, Express, MongoDB, and Socket.IO backend is maintained in a separate `prime_city_be/Node_Backend` project and must be deployed for connected features to work.
 
 ## Features
 
@@ -10,26 +10,76 @@ The repository currently contains the Android and iOS client. The backend is hos
 - OTP-based forgot-password flow
 - Access-token refresh and automatic session expiry handling
 - Resident dashboard with advertisements, announcements, and quick actions
-- Utility bill list UI
-- Visitor pre-registration and badge response
-- Available-helper directory and helper requests
-- Maintenance, security, and general issue reports
+- Role-scoped billing: residents see only their room's bills; Admin and Staff can see resident bills
+- Visitor pre-registration, badge response, and resident visitor history
+- Available-helper directory, helper requests, and resident helper history
+- Maintenance, security, and general issue reports with resident status history
 - Security, medical, and fire SOS alerts
-- In-app notification inbox and mark-all-as-read support
+- Database-backed notification inbox with per-user unread counts and mark-as-read support
+- JWT-authenticated Socket.IO realtime notification updates with reconnect support
 - Firebase Cloud Messaging push notifications with Android notification channels
-- Admin-only notification composer for one resident or all residents
+- Admin-only notification composer for one selected resident or all residents
+- Admin acknowledgement/submit actions for resident reports and helper requests
+- Admin request/report detail views with resident and room information
 - Resident profile and light/dark theme switching
-- Floating AI assistant with text chat, voice input/output, RAG/tool support, chat history, and response feedback
+- Floating AI assistant with text chat, voice input/output, private chat history, role-scoped tools, RAG, feedback, and consistent Myanmar honorifics
 
-## Current Scope
+## Version 2 Updates
 
-Some parts of the application are still in progress:
+The Version 2 update preserves the existing navigation and resident features while extending the connected data, privacy, and administration behavior.
 
-- The Bills screen displays local sample data from `fakeBills`; payment and billing APIs are not connected yet.
-- Parking, rooms, visitor-list, profile-edit, bill-detail, and standalone OTP screen files are placeholders and are not registered in the active navigation flow.
-- The automated test suite currently contains one application render smoke test. It still needs a mock or Jest transform for `react-native-audio-recorder-player` before it can pass.
-- ESLint currently reports one error for an undefined `speak` reference in `FloatingChat.jsx`, along with existing style and unused-variable warnings.
-- This repository does not contain the backend service or its database.
+### Role and UI corrections
+
+- Admin and Staff accounts are labelled with their actual role instead of appearing as residents.
+- The `Report Now` action is hidden for Admin and Staff, while the resident reporting feature remains available.
+- Opening helper, visitor, alert, or history screens no longer changes the Announcement tab into a false `New` state.
+- The notification bell uses the real unread count. Its red indicator is shown only while unread notifications exist.
+- Application registration now happens synchronously on cold start. Icon-font loading cannot delay React Native registration and cause the first launch to close before the UI appears.
+
+### Bills and resident activity
+
+- Bill data comes from the backend instead of local sample records.
+- Resident bill queries are derived from the authenticated user and assigned room; a client-provided user or room ID cannot expand access.
+- Admin and Staff receive the authorized cross-resident bill view.
+- The resident Activity History screen includes visitor registrations, requested helpers, and submitted reports.
+- Report history includes status and acknowledgement information and remains available until the corresponding records are deleted.
+
+### Notifications and admin workflow
+
+- Admin can send a real notification to all residents or select one resident from the backend resident list.
+- Notifications are persisted in MongoDB, delivered in-app through authenticated Socket.IO, and registered for Firebase device push.
+- Realtime socket identity is derived from the access token, not from a user ID supplied by the client.
+- Admin can inspect the originating resident and room for supported requests and reports.
+- Submitting a report, helper request, or actionable notification records the action and sends an acknowledgement notification back to the resident.
+- Multiple devices per user are supported, and notification socket authentication is refreshed on reconnect.
+
+### AI assistant, RAG, and privacy
+
+- AI bill answers use only the authenticated resident's assigned room. Admin-only aggregate tools remain protected by role checks.
+- Private tools for bills, visitor history, helper history, reports, SOS, and RFID activity are scoped to the signed-in user.
+- The assistant can answer current resident-population, room-availability, date/time, configured Admin contact, and live weather questions through backend tools.
+- Admin contact requests return `09455507081` and `09965139303`.
+- Chat conversations are persisted per user, restored across app launches, and retained until the user deletes them.
+- Relevant memory retrieval is restricted to the same user. One resident's chat, bill, or activity data is never included in another resident's context.
+- The assistant preserves the user's selected Myanmar honorific style, such as `ရှင်` or `ခင်ဗျာ`, across the conversation.
+- RAG retrieval uses audience/role filters, document metadata, query-relevant chunks, and source information.
+- Positive and categorized negative feedback can be submitted from chat. Feedback is private by default and is never promoted automatically.
+- Admin review APIs can approve or reject feedback. Approval requires separately reviewed knowledge text, creates an auditable knowledge record, and does not publish raw private chat content.
+
+### Backend security and observability
+
+- Admin notification sends, request submissions, report changes, knowledge changes, and feedback reviews create sanitized audit records.
+- Frequently queried notification, bill, visitor, helper, report, device-token, knowledge, and feedback fields have database indexes.
+- List/history endpoints use bounded limits or pagination to avoid unbounded responses.
+- New schemas and indexes are additive; the update does not drop existing user or production data.
+
+## Current Scope and Production Requirements
+
+- The updated backend must be deployed before the new mobile API and Socket.IO behavior is available from the production API URL.
+- In-app database/socket delivery works with the backend. Background and terminated-app push delivery additionally requires a Firebase Admin service account on the backend.
+- RAG currently uses MongoDB-backed metadata and relevant-chunk retrieval. A separate vector database or embedding provider is not required by this version and is not configured.
+- Parking, rooms, profile-edit, bill-detail, and standalone OTP screen files that were already placeholders remain outside the active navigation flow.
+- Never place Firebase Admin credentials, database credentials, signing keys, or other server secrets in the mobile application.
 
 ## Tech Stack
 
@@ -39,6 +89,7 @@ Some parts of the application are still in progress:
 | UI | React 19.2.3 |
 | Navigation | React Navigation 7 |
 | Local persistence | AsyncStorage |
+| Realtime transport | Socket.IO client with JWT authentication |
 | Push notifications | Firebase Cloud Messaging and Notifee |
 | Voice assistant | React Native Voice, TTS, Audio Recorder Player, and React Native FS |
 | Icons | React Native Vector Icons / Ionicons |
@@ -64,11 +115,11 @@ smart_residential/
     │   ├── assets/              # App images
     │   ├── components/          # Shared UI and floating assistant
     │   ├── config/              # API configuration
-    │   ├── context/             # Authentication, chat, and theme state
+    │   ├── context/             # Authentication, chat, notification, and theme state
     │   ├── hooks/               # Voice assistant behavior
     │   ├── navigation/          # Auth, stack, and tab navigators
     │   ├── screens/             # Feature screens
-    │   └── services/            # Chat and push-notification services
+    │   └── services/            # Chat, realtime socket, and push-notification services
     ├── __tests__/               # Jest tests
     ├── App.jsx                  # Provider and application composition
     ├── index.js                 # Native entry point and background push setup
@@ -146,15 +197,18 @@ When using a backend on your development machine:
 | Password reset | `/auth/forgot-password/step1`, `/auth/forgot-password/step2` |
 | Profile | `/protected/profile` |
 | Announcements and ads | `/announcements`, `/advertisements` |
-| Notifications | `/notifications`, `/notifications/mark-all-read`, `/notifications/device-token` |
-| Admin notifications | `/notifications/residents`, `/notifications/send` |
+| Bills | `/bills` |
+| Notifications | `/notifications`, `/notifications/unread-count`, `/notifications/:id/read`, `/notifications/mark-all-read`, `/notifications/device-token` |
+| Admin notifications | `/notifications/residents`, `/notifications/send`, `/notifications/:id/submit` |
 | Helpers | `/helpers`, `/helper-requests` |
-| Visitors | `/visitors/register` |
-| Reports and SOS | `/reports`, `/sos` |
-| AI assistant | `/ai/chat`, `/ai/voice`, `/ai/history`, `/ai/feedback` |
+| Visitors | `/visitors`, `/visitors/register` |
+| Reports and SOS | `/reports`, `/reports/mine`, `/reports/:id/submit`, `/sos` |
+| AI assistant | `/ai/chat`, `/ai/voice`, `/ai/history`, `/ai/history/:conversationId`, `/ai/feedback` |
+| AI feedback review | `/ai/feedback/admin`, `/ai/feedback/:id/review` |
+| Admin audit log | `/audit-logs` |
 | MCP discovery | `/mcp/tools` |
 
-Authenticated requests send `Authorization: Bearer <access-token>`. Access and refresh tokens are stored in AsyncStorage. If an authenticated request returns `401`, the client attempts one token refresh before clearing the local session.
+Authenticated requests send `Authorization: Bearer <access-token>`. Access and refresh tokens are stored in AsyncStorage. If an authenticated HTTP request returns `401`, the client attempts one token refresh before clearing the local session. Socket.IO also authenticates with the access token and updates that token before a reconnect attempt.
 
 ## Firebase Push Notifications
 
@@ -175,6 +229,28 @@ The Gradle build enables the Google Services plugin only when this file exists. 
 Add the matching `GoogleService-Info.plist` to the `SmartCityMobile` Xcode target, configure signing, enable Push Notifications and Background Modes/Remote notifications, and configure APNs in Firebase. Then reinstall pods and rebuild the native application.
 
 If Firebase or Notifee is missing from an existing native build, JavaScript hot reload is not sufficient; rebuild the application.
+
+### Backend Firebase Admin
+
+The Android/iOS Firebase files identify the client application; they do not authorize the backend to send device pushes. Configure one Firebase Admin credential source in the backend environment:
+
+```dotenv
+# Option 1: full service-account JSON on one line
+FIREBASE_SERVICE_ACCOUNT_JSON=
+
+# Option 2: path to a protected service-account JSON file
+FIREBASE_SERVICE_ACCOUNT_PATH=
+
+# Option 3: Application Default Credentials
+GOOGLE_APPLICATION_CREDENTIALS=
+
+# Option 4: individual values
+FIREBASE_PROJECT_ID=prime-city-2915c
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+```
+
+Use only one credential source, restrict access to the credential file, and never commit the private key. Without Firebase Admin credentials, MongoDB notifications and foreground/in-app Socket.IO delivery still work, but background or terminated-app device push cannot be sent by the server.
 
 ## Running the App
 
@@ -219,13 +295,33 @@ Run these commands from `Smart_city_Mobile/`:
 
 ## Testing and Quality Checks
 
+Run the mobile checks:
+
 ```bash
 cd Smart_city_Mobile
 npm test -- --runInBand
 npm run lint
+
+cd android
+./gradlew :app:assembleDebug
 ```
 
-The Jest setup mocks several native modules, but the current smoke test stops while parsing the TypeScript entry point of `react-native-audio-recorder-player`. Add a mock for that package or include it in the Jest transform configuration before treating the test command as a passing quality gate. ESLint also requires the existing undefined `speak` reference to be resolved. Add unit tests beside new API, state, and UI behavior as the application grows.
+Run the backend checks from the separate backend project:
+
+```bash
+cd ../prime_city_be/Node_Backend
+npm test
+```
+
+Verification performed for the Version 2 update:
+
+- Mobile Jest application test: passed.
+- ESLint: zero errors; eleven non-blocking existing style/structure warnings.
+- Android debug build: `BUILD SUCCESSFUL`.
+- Android cold launch: verified twice after force-stop with no fatal runtime or application-registration error.
+- Backend privacy, intent, reviewer, room-scope, and visitor-scope tests: 14 of 14 passed.
+
+The privacy tests explicitly verify that a resident cannot override the authenticated room/user scope when asking the AI about bills or visitor history. Add focused regression tests whenever authorization, data scope, notification delivery, or AI tools change.
 
 ## Docker (Metro Only)
 
