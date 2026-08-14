@@ -14,7 +14,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import {
+  fetchHelperRequests,
   fetchHelpers,
   fetchMyHelperRequests,
 } from '../../api/helpers';
@@ -28,34 +30,51 @@ function getExperienceText(value) {
 
 export default function HelperListScreen({ navigation }) {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [helpers, setHelpers] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const isAdmin = ['Admin', 'Staff'].includes(user?.role);
 
-  const activeRequestCount = requests.filter((item) => item.status !== 'Completed').length;
+  const activeRequestCount = requests.filter(
+    item => item.status !== 'Completed',
+  ).length;
 
-  const loadHelpers = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const loadHelpers = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
 
-    try {
-      const [helperData, requestData] = await Promise.all([
-        fetchHelpers({ status: 'Active' }),
-        fetchMyHelperRequests(),
-      ]);
-      setHelpers(helperData);
-      setRequests(requestData);
-    } catch (err) {
-      if (err.sessionExpired) return;
-      setError(err.message || 'Failed to load helpers');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      try {
+        let helperData = [];
+        let requestData = [];
+
+        if (isAdmin) {
+          requestData = await fetchHelperRequests();
+        } else {
+          const results = await Promise.all([
+            fetchHelpers({ status: 'Active' }),
+            fetchMyHelperRequests(),
+          ]);
+          helperData = results[0];
+          requestData = results[1];
+        }
+
+        setHelpers(Array.isArray(helperData) ? helperData : []);
+        setRequests(Array.isArray(requestData) ? requestData : []);
+      } catch (err) {
+        if (err.sessionExpired) return;
+        setError(err.message || 'Failed to load helpers');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [isAdmin],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -69,28 +88,42 @@ export default function HelperListScreen({ navigation }) {
         {item.photo ? (
           <Image source={{ uri: item.photo }} style={styles.avatar} />
         ) : (
-          <View style={[styles.avatarFallback, { backgroundColor: theme.primary + '18' }]}>
+          <View
+            style={[
+              styles.avatarFallback,
+              { backgroundColor: theme.primary + '18' },
+            ]}
+          >
             <Ionicons name="person-outline" size={24} color={theme.primary} />
           </View>
         )}
         <View style={styles.helperInfo}>
           <View style={styles.titleRow}>
-            <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+            <Text
+              style={[styles.name, { color: theme.text }]}
+              numberOfLines={1}
+            >
               {item.fullname}
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: theme.successBg }]}>
+            <View
+              style={[styles.statusBadge, { backgroundColor: theme.successBg }]}
+            >
               <Text style={[styles.statusText, { color: theme.success }]}>
                 {item.status || 'Active'}
               </Text>
             </View>
           </View>
           <Text style={[styles.meta, { color: theme.subtext }]}>
-            {[item.gender, getExperienceText(item.experience)].filter(Boolean).join(' · ')}
+            {[item.gender, getExperienceText(item.experience)]
+              .filter(Boolean)
+              .join(' · ')}
           </Text>
           {item.phone ? (
             <View style={styles.phoneRow}>
               <Ionicons name="call-outline" size={13} color={theme.subtext} />
-              <Text style={[styles.phone, { color: theme.subtext }]}>{item.phone}</Text>
+              <Text style={[styles.phone, { color: theme.subtext }]}>
+                {item.phone}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -98,22 +131,90 @@ export default function HelperListScreen({ navigation }) {
       <TouchableOpacity
         style={[styles.requestBtn, { backgroundColor: theme.primary }]}
         onPress={() => navigation.navigate('HelperRequest', { helper: item })}
-        activeOpacity={0.85}>
-        <Ionicons name="add-circle-outline" size={18} color={theme.primaryText} />
-        <Text style={[styles.requestText, { color: theme.primaryText }]}>Request helper</Text>
+        activeOpacity={0.85}
+      >
+        <Ionicons
+          name="add-circle-outline"
+          size={18}
+          color={theme.primaryText}
+        />
+        <Text style={[styles.requestText, { color: theme.primaryText }]}>
+          Request helper
+        </Text>
       </TouchableOpacity>
     </Card>
   );
+
+  const renderAdminRequest = ({ item }) => {
+    const room = item.room_id;
+    const resident = item.requested_by;
+    const helper = item.helper_id;
+    const completed = item.status === 'Completed';
+    const statusColor = completed ? theme.success : theme.warning;
+    const statusBackground = completed ? theme.successBg : theme.warningBg;
+
+    return (
+      <Card>
+        <View style={styles.requestHeader}>
+          <View
+            style={[
+              styles.avatarFallback,
+              { backgroundColor: theme.primary + '18' },
+            ]}
+          >
+            <Ionicons name="people-outline" size={24} color={theme.primary} />
+          </View>
+          <View style={styles.helperInfo}>
+            <Text style={[styles.name, { color: theme.text }]}>
+              {item.type}
+            </Text>
+            <Text style={[styles.meta, { color: theme.subtext }]}>
+              Room {room?.room_name || 'Unknown'} ·{' '}
+              {resident?.fullname || 'Unknown resident'}
+            </Text>
+          </View>
+          <View
+            style={[styles.statusBadge, { backgroundColor: statusBackground }]}
+          >
+            <Text style={[styles.statusText, { color: statusColor }]}>
+              {item.status}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.requestDetails}>
+          <Text style={[styles.requestDetail, { color: theme.subtext }]}>
+            Preferred: {item.gender_preferred}
+          </Text>
+          {helper?.fullname ? (
+            <Text style={[styles.requestDetail, { color: theme.subtext }]}>
+              Helper: {helper.fullname}
+            </Text>
+          ) : null}
+          {resident?.phone ? (
+            <Text style={[styles.requestDetail, { color: theme.subtext }]}>
+              Resident phone: {resident.phone}
+            </Text>
+          ) : null}
+          {item.note ? (
+            <Text style={[styles.requestNote, { color: theme.text }]}>
+              {item.note}
+            </Text>
+          ) : null}
+        </View>
+      </Card>
+    );
+  };
 
   return (
     <ScreenContainer
       navigation={navigation}
       topBarVariant="stack"
       title="Helpers"
-      showBottomNav>
+      showBottomNav
+    >
       <FlatList
-        data={helpers}
-        keyExtractor={(item) => item._id}
+        data={isAdmin ? requests : helpers}
+        keyExtractor={item => item._id}
         contentContainerStyle={styles.list}
         refreshControl={
           <RefreshControl
@@ -126,9 +227,15 @@ export default function HelperListScreen({ navigation }) {
           <>
             <View style={styles.header}>
               <View>
-                <Text style={[styles.heading, { color: theme.text }]}>Helpers</Text>
+                <Text style={[styles.heading, { color: theme.text }]}>
+                  {isAdmin ? 'Helper Requests' : 'Helpers'}
+                </Text>
                 <Text style={[styles.sub, { color: theme.subtext }]}>
-                  {activeRequestCount
+                  {isAdmin
+                    ? `${requests.length} resident request${
+                        requests.length === 1 ? '' : 's'
+                      }`
+                    : activeRequestCount
                     ? `${activeRequestCount} active requests`
                     : 'Available house helpers'}
                 </Text>
@@ -137,8 +244,14 @@ export default function HelperListScreen({ navigation }) {
 
             {error ? (
               <View style={[styles.errorBanner, { borderColor: theme.danger }]}>
-                <Ionicons name="alert-circle-outline" size={18} color={theme.danger} />
-                <Text style={[styles.errorText, { color: theme.text }]}>{error}</Text>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={18}
+                  color={theme.danger}
+                />
+                <Text style={[styles.errorText, { color: theme.text }]}>
+                  {error}
+                </Text>
               </View>
             ) : null}
           </>
@@ -150,12 +263,18 @@ export default function HelperListScreen({ navigation }) {
             </View>
           ) : (
             <View style={styles.centered}>
-              <Ionicons name="people-outline" size={36} color={theme.inactive} />
-              <Text style={[styles.emptyText, { color: theme.subtext }]}>No helpers available</Text>
+              <Ionicons
+                name="people-outline"
+                size={36}
+                color={theme.inactive}
+              />
+              <Text style={[styles.emptyText, { color: theme.subtext }]}>
+                {isAdmin ? 'No helper requests found' : 'No helpers available'}
+              </Text>
             </View>
           )
         }
-        renderItem={renderHelper}
+        renderItem={isAdmin ? renderAdminRequest : renderHelper}
       />
     </ScreenContainer>
   );
@@ -169,7 +288,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
-  heading: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3, marginBottom: 4 },
+  heading: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
   sub: { fontSize: 14 },
   helperRow: { flexDirection: 'row', marginBottom: 14 },
   avatar: { width: 58, height: 58, borderRadius: 14, marginRight: 12 },
@@ -182,7 +306,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   helperInfo: { flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   name: { flex: 1, fontSize: 16, fontWeight: '700' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   statusText: { fontSize: 11, fontWeight: '700' },
@@ -198,6 +327,10 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   requestText: { fontSize: 14, fontWeight: '700' },
+  requestHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  requestDetails: { marginTop: 10, gap: 4 },
+  requestDetail: { fontSize: 13 },
+  requestNote: { fontSize: 14, lineHeight: 20, marginTop: 5 },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -208,6 +341,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   errorText: { flex: 1, fontSize: 13 },
-  centered: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    gap: 10,
+  },
   emptyText: { fontSize: 15, textAlign: 'center' },
 });

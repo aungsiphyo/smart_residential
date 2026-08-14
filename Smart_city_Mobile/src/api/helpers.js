@@ -31,6 +31,16 @@ export async function createHelperRequest(payload) {
 }
 
 export async function fetchMyHelperRequests() {
-  const res = await apiRequest('/helper-requests?mine=true', { auth: true });
+  return fetchHelperRequests({ mine: true });
+}
+
+export async function fetchHelperRequests(params = {}) {
+  const query = new URLSearchParams();
+  if (params.mine) query.set('mine', 'true');
+  const qs = query.toString();
+  const res = await apiRequest(
+    qs ? `/helper-requests?${qs}` : '/helper-requests',
+    { auth: true },
+  );
   return Array.isArray(res) ? res : res.data || [];
 }

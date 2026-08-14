@@ -20,7 +20,7 @@ const PROFILE_FIELDS = [
   { key: 'fullname', label: 'Name', icon: 'person-outline' },
   { key: 'email', label: 'Email', icon: 'mail-outline' },
   { key: 'phone', label: 'Phone', icon: 'call-outline' },
-  { key: 'room_id', label: 'Unit', icon: 'home-outline' },
+  { key: 'room_number', label: 'Unit', icon: 'home-outline' },
 ];
 
 function getInitials(name) {
@@ -29,7 +29,7 @@ function getInitials(name) {
     .split(' ')
     .filter(Boolean)
     .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
+    .map(part => part[0].toUpperCase())
     .join('');
 }
 
@@ -75,7 +75,7 @@ export default function ProfileScreen({ navigation }) {
     ]);
   };
 
-  const displayValue = (key) => {
+  const displayValue = key => {
     const value = profile?.[key];
     if (value == null || value === '') return '—';
     return String(value);
@@ -90,12 +90,21 @@ export default function ProfileScreen({ navigation }) {
           </View>
         ) : error ? (
           <View style={styles.centered}>
-            <Ionicons name="alert-circle-outline" size={40} color={theme.danger} />
-            <Text style={[styles.errorText, { color: theme.text }]}>{error}</Text>
+            <Ionicons
+              name="alert-circle-outline"
+              size={40}
+              color={theme.danger}
+            />
+            <Text style={[styles.errorText, { color: theme.text }]}>
+              {error}
+            </Text>
             <TouchableOpacity
               style={[styles.retryBtn, { backgroundColor: theme.primary }]}
-              onPress={loadProfile}>
-              <Text style={[styles.retryText, { color: theme.primaryText }]}>Retry</Text>
+              onPress={loadProfile}
+            >
+              <Text style={[styles.retryText, { color: theme.primaryText }]}>
+                Retry
+              </Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -106,12 +115,18 @@ export default function ProfileScreen({ navigation }) {
                   {getInitials(profile?.fullname)}
                 </Text>
               </View>
-              <Text style={[styles.name, { color: theme.text }]}>{profile?.fullname}</Text>
-              {profile?.room_id ? (
-                <Text style={[styles.unit, { color: theme.subtext }]}>Unit {profile.room_id}</Text>
+              <Text style={[styles.name, { color: theme.text }]}>
+                {profile?.fullname}
+              </Text>
+              {profile?.room_number ? (
+                <Text style={[styles.unit, { color: theme.subtext }]}>
+                  Unit {profile.room_number}
+                </Text>
               ) : null}
               {profile?.role ? (
-                <Text style={[styles.role, { color: theme.subtext }]}>{profile.role}</Text>
+                <Text style={[styles.role, { color: theme.subtext }]}>
+                  {profile.role}
+                </Text>
               ) : null}
             </View>
 
@@ -125,12 +140,24 @@ export default function ProfileScreen({ navigation }) {
                       borderBottomWidth: 1,
                       borderBottomColor: theme.border,
                     },
-                  ]}>
-                  <View style={[styles.fieldIcon, { backgroundColor: theme.primary + '15' }]}>
-                    <Ionicons name={field.icon} size={18} color={theme.primary} />
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.fieldIcon,
+                      { backgroundColor: theme.primary + '15' },
+                    ]}
+                  >
+                    <Ionicons
+                      name={field.icon}
+                      size={18}
+                      color={theme.primary}
+                    />
                   </View>
                   <View style={styles.fieldContent}>
-                    <Text style={[styles.fieldLabel, { color: theme.subtext }]}>{field.label}</Text>
+                    <Text style={[styles.fieldLabel, { color: theme.subtext }]}>
+                      {field.label}
+                    </Text>
                     <Text style={[styles.fieldValue, { color: theme.text }]}>
                       {displayValue(field.key)}
                     </Text>
@@ -141,7 +168,12 @@ export default function ProfileScreen({ navigation }) {
 
             <Card style={styles.settingsCard}>
               <View style={styles.settingRow}>
-                <View style={[styles.fieldIcon, { backgroundColor: theme.primary + '15' }]}>
+                <View
+                  style={[
+                    styles.fieldIcon,
+                    { backgroundColor: theme.primary + '15' },
+                  ]}
+                >
                   <Ionicons
                     name={isDark ? 'moon' : 'sunny'}
                     size={18}
@@ -149,7 +181,9 @@ export default function ProfileScreen({ navigation }) {
                   />
                 </View>
                 <View style={styles.fieldContent}>
-                  <Text style={[styles.fieldLabel, { color: theme.subtext }]}>Appearance</Text>
+                  <Text style={[styles.fieldLabel, { color: theme.subtext }]}>
+                    Appearance
+                  </Text>
                   <Text style={[styles.fieldValue, { color: theme.text }]}>
                     {isDark ? 'Dark mode' : 'Light mode'}
                   </Text>
@@ -166,9 +200,12 @@ export default function ProfileScreen({ navigation }) {
             <TouchableOpacity
               style={[styles.logoutBtn, { borderColor: theme.danger }]}
               onPress={onSignOut}
-              activeOpacity={0.7}>
+              activeOpacity={0.7}
+            >
               <Ionicons name="log-out-outline" size={18} color={theme.danger} />
-              <Text style={[styles.logoutText, { color: theme.danger }]}>Sign out</Text>
+              <Text style={[styles.logoutText, { color: theme.danger }]}>
+                Sign out
+              </Text>
             </TouchableOpacity>
           </>
         )}
@@ -179,9 +216,19 @@ export default function ProfileScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { padding: 16, paddingBottom: 32 },
-  centered: { alignItems: 'center', justifyContent: 'center', paddingVertical: 48, gap: 12 },
+  centered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    gap: 12,
+  },
   errorText: { fontSize: 15, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
   retryText: { fontSize: 14, fontWeight: '600' },
   avatarSection: { alignItems: 'center', marginBottom: 24 },
   avatar: {

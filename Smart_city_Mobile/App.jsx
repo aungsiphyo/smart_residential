@@ -6,6 +6,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import ThemeProvider, { useTheme } from './src/context/ThemeContext';
 import AuthProvider, { useAuth } from './src/context/AuthContext';
 import { ChatProvider } from './src/context/ChatContext';
+import { NotificationProvider } from './src/context/NotificationContext';
 import FloatingChat from './src/components/FloatingChat';
 import {
   cleanupPushNotifications,
@@ -44,7 +45,9 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <AppContent />
+            <NotificationProvider>
+              <AppContent />
+            </NotificationProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>

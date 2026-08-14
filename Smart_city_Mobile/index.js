@@ -9,8 +9,8 @@ import { registerBackgroundNotificationHandler } from './src/services/pushNotifi
 enableScreens();
 registerBackgroundNotificationHandler();
 
-Ionicons.loadFont()
-  .catch(() => null)
-  .finally(() => {
-    AppRegistry.registerComponent(appName, () => App);
-  });
+// React Native expects the root component to be registered synchronously.
+// Waiting for the first font-cache load can make Android report that the app
+// is not registered on a cold launch, while a second launch appears to work.
+AppRegistry.registerComponent(appName, () => App);
+Ionicons.loadFont().catch(() => null);

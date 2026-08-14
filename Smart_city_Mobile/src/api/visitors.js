@@ -14,8 +14,23 @@ export const VISITOR_PURPOSES = [
 export async function registerVisitor(payload) {
   return apiRequest('/visitors/register', {
     method: 'POST',
+    auth: true,
     body: payload,
   });
+}
+
+export async function fetchVisitorHistory(params = {}) {
+  const query = new URLSearchParams();
+  if (params.limit) query.set('limit', String(params.limit));
+  if (params.page) query.set('page', String(params.page));
+  const qs = query.toString();
+  const res = await apiRequest(qs ? `/visitors?${qs}` : '/visitors', {
+    auth: true,
+  });
+  return {
+    data: Array.isArray(res.data) ? res.data : [],
+    pagination: res.pagination || null,
+  };
 }
 
 export function splitFullName(fullName) {

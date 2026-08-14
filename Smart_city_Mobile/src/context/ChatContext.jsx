@@ -8,7 +8,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { resetConversation, setConversationId } from '../services/chatService';
+import {
+  deleteChatConversation,
+  loadChatSessions,
+  resetConversation,
+  setConversationId,
+} from '../services/chatService';
 
 const ChatContext = createContext(null);
 
@@ -18,7 +23,8 @@ const ChatContext = createContext(null);
  * being visible to User B after a logout/login cycle.
  */
 function getChatStorageKey(userId) {
-  return `@smart_city_mobile/chat_sessions_v1__${userId || '_anonymous'}`;
+  if (!userId || userId === 'session') return null;
+  return `@smart_city_mobile/chat_sessions_v1__${userId}`;
 }
 
 function createSession() {
@@ -52,6 +58,35 @@ function createLocalMessage(text, from, extras = {}) {
   };
 }
 
+function mapServerSession(serverSession, localSession) {
+  const conversationId = serverSession.conversationId;
+  const messages = (serverSession.messages || []).map(message => ({
+    id: message.id,
+    text: message.content,
+    from: message.role === 'assistant' ? 'bot' : 'user',
+    createdAt: message.timestamp,
+    ...(message.role === 'assistant'
+      ? {
+          assistantMessageId: message.id,
+          conversationId,
+          toolCalls: message.toolCalls || [],
+          knowledgeSources: message.knowledgeSources || [],
+          intent: message.intent || null,
+          feedbackRating: null,
+        }
+      : {}),
+  }));
+
+  return {
+    id: localSession?.id || `server-${conversationId}`,
+    title: serverSession.title || localSession?.title || 'New chat',
+    messages,
+    conversationId,
+    createdAt: serverSession.createdAt || localSession?.createdAt,
+    updatedAt: serverSession.updatedAt || localSession?.updatedAt,
+  };
+}
+
 export function ChatProvider({ children, userId }) {
   const [isOpen, setIsOpen] = useState(false);
   const [sessions, setSessions] = useState([]);
@@ -71,25 +106,58 @@ export function ChatProvider({ children, userId }) {
 
     async function loadSessions() {
       try {
-        const raw = await AsyncStorage.getItem(CHAT_HISTORY_KEY);
+        const raw = CHAT_HISTORY_KEY
+          ? await AsyncStorage.getItem(CHAT_HISTORY_KEY)
+          : null;
         const parsed = raw ? JSON.parse(raw) : null;
         const savedSessions = Array.isArray(parsed?.sessions)
           ? parsed.sessions
           : [];
+        let serverSessions = [];
+
+        if (userId) {
+          try {
+            serverSessions = await loadChatSessions();
+          } catch (err) {
+            serverSessions = [];
+          }
+        }
+
+        const localByConversation = new Map(
+          savedSessions
+            .filter(session => session.conversationId)
+            .map(session => [session.conversationId, session]),
+        );
+        const serverConversationIds = new Set(
+          serverSessions.map(session => session.conversationId),
+        );
+        const mergedSessions = [
+          ...serverSessions.map(session =>
+            mapServerSession(
+              session,
+              localByConversation.get(session.conversationId),
+            ),
+          ),
+          ...savedSessions.filter(
+            session =>
+              !session.conversationId ||
+              !serverConversationIds.has(session.conversationId),
+          ),
+        ].sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
         if (!mounted) return;
 
-        if (savedSessions.length > 0) {
+        if (mergedSessions.length > 0) {
           const nextActiveId =
             parsed.activeSessionId &&
-            savedSessions.some(session => session.id === parsed.activeSessionId)
+            mergedSessions.some(session => session.id === parsed.activeSessionId)
               ? parsed.activeSessionId
-              : savedSessions[0].id;
-          const activeSession = savedSessions.find(
+              : mergedSessions[0].id;
+          const activeSession = mergedSessions.find(
             session => session.id === nextActiveId,
           );
 
-          setSessions(savedSessions);
+          setSessions(mergedSessions);
           setActiveSessionId(nextActiveId);
           setConversationId(activeSession?.conversationId ?? null);
         } else {
@@ -126,6 +194,7 @@ export function ChatProvider({ children, userId }) {
     if (!hydrated) return;
 
     const CHAT_HISTORY_KEY = getChatStorageKey(userId);
+    if (!CHAT_HISTORY_KEY) return;
     AsyncStorage.setItem(
       CHAT_HISTORY_KEY,
       JSON.stringify({ sessions, activeSessionId }),
@@ -166,7 +235,15 @@ export function ChatProvider({ children, userId }) {
   );
 
   const deleteSession = useCallback(
-    sessionId => {
+    async sessionId => {
+      const target = sessions.find(session => session.id === sessionId);
+      if (target?.conversationId) {
+        try {
+          await deleteChatConversation(target.conversationId);
+        } catch (err) {
+          return false;
+        }
+      }
       const remaining = sessions.filter(session => session.id !== sessionId);
 
       if (remaining.length === 0) {
@@ -174,7 +251,7 @@ export function ChatProvider({ children, userId }) {
         setSessions([session]);
         setActiveSessionId(session.id);
         resetConversation();
-        return;
+        return true;
       }
 
       setSessions(remaining);
@@ -183,6 +260,7 @@ export function ChatProvider({ children, userId }) {
         setActiveSessionId(remaining[0].id);
         setConversationId(remaining[0].conversationId ?? null);
       }
+      return true;
     },
     [activeSessionId, sessions],
   );
