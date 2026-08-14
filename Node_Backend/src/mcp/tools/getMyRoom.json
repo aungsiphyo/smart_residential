@@ -1,8 +1,0 @@
-{
-  "name": "getMyRoom",
-  "description": "Get current logged in user room information",
-  "parameters": {
-    "type": "object",
-    "properties": {}
-  }
-}
