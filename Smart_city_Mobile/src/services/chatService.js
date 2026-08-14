@@ -120,6 +120,27 @@ export async function loadChatHistory() {
   }
 }
 
+export async function loadChatSessions() {
+  try {
+    const data = await apiRequest('/ai/history?limit=2000', {
+      method: 'GET',
+      auth: true,
+    });
+    return Array.isArray(data.sessions) ? data.sessions : [];
+  } catch (err) {
+    if (err.status === 401) return [];
+    throw err;
+  }
+}
+
+export async function deleteChatConversation(conversationIdToDelete) {
+  if (!conversationIdToDelete) return null;
+  return apiRequest(
+    `/ai/history/${encodeURIComponent(conversationIdToDelete)}`,
+    { method: 'DELETE', auth: true },
+  );
+}
+
 export async function sendFeedback({
   conversationId: feedbackConversationId,
   messageId,
@@ -127,6 +148,7 @@ export async function sendFeedback({
   helpful,
   resolved,
   comment,
+  feedbackType,
   appVersion,
 }) {
   if (!feedbackConversationId || !messageId) {
@@ -143,6 +165,7 @@ export async function sendFeedback({
       helpful: helpful ?? rating > 0,
       resolved,
       comment,
+      feedbackType,
       appVersion,
     },
   });

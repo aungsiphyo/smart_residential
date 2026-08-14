@@ -64,11 +64,12 @@ export default function AdminNotificationScreen({ navigation }) {
     const term = search.trim().toLowerCase();
     if (!term) return residents;
 
-    return residents.filter((resident) => {
+    return residents.filter(resident => {
       const text = [
         resident.fullname,
         resident.email,
         resident.phone,
+        resident.room_number,
         resident.room_id,
       ]
         .filter(Boolean)
@@ -99,15 +100,28 @@ export default function AdminNotificationScreen({ navigation }) {
         type,
       });
 
+      const sentCount = Number(res.sent_count || 0);
+      const pushDelivery = res.push_delivery;
+      const pushMessage = pushDelivery?.success
+        ? ` Push delivered to ${pushDelivery.successCount || 0} device(s).`
+        : pushDelivery?.skipped
+        ? ` In-app notification sent; device push skipped (${pushDelivery.reason}).`
+        : '';
+
       Alert.alert(
         'Notification sent',
-        `${res.sent_count || 1} resident${(res.sent_count || 1) > 1 ? 's' : ''} notified.`,
+        `${sentCount} resident${
+          sentCount === 1 ? '' : 's'
+        } received it in the app.${pushMessage}`,
       );
       setTitle('');
       setMessage('');
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Send failed', err.message || 'Unable to send notification.');
+        Alert.alert(
+          'Send failed',
+          err.message || 'Unable to send notification.',
+        );
       }
     } finally {
       setSubmitting(false);
@@ -119,12 +133,16 @@ export default function AdminNotificationScreen({ navigation }) {
       navigation={navigation}
       topBarVariant="stack"
       title="Send Notification"
-      showBottomNav>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      showBottomNav
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.section}>
           <Text style={[styles.label, { color: theme.subtext }]}>Send to</Text>
           <View style={styles.segmentRow}>
-            {TARGETS.map((item) => {
+            {TARGETS.map(item => {
               const selected = target === item.id;
               return (
                 <TouchableOpacity
@@ -137,7 +155,8 @@ export default function AdminNotificationScreen({ navigation }) {
                     },
                   ]}
                   onPress={() => setTarget(item.id)}
-                  activeOpacity={0.8}>
+                  activeOpacity={0.8}
+                >
                   <Ionicons
                     name={item.icon}
                     size={17}
@@ -147,7 +166,8 @@ export default function AdminNotificationScreen({ navigation }) {
                     style={[
                       styles.segmentText,
                       { color: selected ? theme.primaryText : theme.text },
-                    ]}>
+                    ]}
+                  >
                     {item.label}
                   </Text>
                 </TouchableOpacity>
@@ -158,9 +178,20 @@ export default function AdminNotificationScreen({ navigation }) {
 
         {target === 'one' ? (
           <View style={styles.section}>
-            <Text style={[styles.label, { color: theme.subtext }]}>Resident</Text>
-            <View style={[styles.searchBox, { backgroundColor: theme.input, borderColor: theme.border }]}>
-              <Ionicons name="search-outline" size={18} color={theme.inactive} />
+            <Text style={[styles.label, { color: theme.subtext }]}>
+              Resident
+            </Text>
+            <View
+              style={[
+                styles.searchBox,
+                { backgroundColor: theme.input, borderColor: theme.border },
+              ]}
+            >
+              <Ionicons
+                name="search-outline"
+                size={18}
+                color={theme.inactive}
+              />
               <TextInput
                 style={[styles.searchInput, { color: theme.text }]}
                 placeholder="Search name, room, phone..."
@@ -176,10 +207,12 @@ export default function AdminNotificationScreen({ navigation }) {
               </View>
             ) : error ? (
               <Card>
-                <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
+                <Text style={[styles.errorText, { color: theme.danger }]}>
+                  {error}
+                </Text>
               </Card>
             ) : (
-              filteredResidents.slice(0, 12).map((resident) => {
+              filteredResidents.map(resident => {
                 const selected = selectedResident?._id === resident._id;
                 return (
                   <TouchableOpacity
@@ -187,37 +220,71 @@ export default function AdminNotificationScreen({ navigation }) {
                     style={[
                       styles.residentRow,
                       {
-                        backgroundColor: selected ? theme.primary + '18' : theme.card,
+                        backgroundColor: selected
+                          ? theme.primary + '18'
+                          : theme.card,
                         borderColor: selected ? theme.primary : theme.border,
                       },
                     ]}
                     onPress={() => setSelectedResident(resident)}
-                    activeOpacity={0.8}>
-                    <View style={[styles.residentIcon, { backgroundColor: theme.primary + '18' }]}>
-                      <Ionicons name="person-outline" size={18} color={theme.primary} />
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.residentIcon,
+                        { backgroundColor: theme.primary + '18' },
+                      ]}
+                    >
+                      <Ionicons
+                        name="person-outline"
+                        size={18}
+                        color={theme.primary}
+                      />
                     </View>
                     <View style={styles.residentCopy}>
-                      <Text style={[styles.residentName, { color: theme.text }]} numberOfLines={1}>
+                      <Text
+                        style={[styles.residentName, { color: theme.text }]}
+                        numberOfLines={1}
+                      >
                         {resident.fullname || 'Resident'}
                       </Text>
-                      <Text style={[styles.residentMeta, { color: theme.subtext }]} numberOfLines={1}>
-                        {[resident.room_id, resident.phone].filter(Boolean).join(' · ')}
+                      <Text
+                        style={[styles.residentMeta, { color: theme.subtext }]}
+                        numberOfLines={1}
+                      >
+                        {[
+                          resident.room_number || resident.room_id,
+                          resident.phone,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </Text>
                     </View>
                     {selected ? (
-                      <Ionicons name="checkmark-circle" size={20} color={theme.primary} />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color={theme.primary}
+                      />
                     ) : null}
                   </TouchableOpacity>
                 );
               })
             )}
+            {!loadingResidents && !error && filteredResidents.length === 0 ? (
+              <Card>
+                <Text style={[styles.emptyText, { color: theme.subtext }]}>
+                  No residents found
+                </Text>
+              </Card>
+            ) : null}
           </View>
         ) : null}
 
         <View style={styles.section}>
           <Text style={[styles.label, { color: theme.subtext }]}>Type</Text>
           <View style={styles.typeRow}>
-            {NOTIFICATION_TYPES.map((item) => {
+            {NOTIFICATION_TYPES.map(item => {
               const selected = type === item;
               return (
                 <TouchableOpacity
@@ -229,12 +296,14 @@ export default function AdminNotificationScreen({ navigation }) {
                       borderColor: selected ? theme.primary : theme.border,
                     },
                   ]}
-                  onPress={() => setType(item)}>
+                  onPress={() => setType(item)}
+                >
                   <Text
                     style={[
                       styles.typeText,
                       { color: selected ? theme.primaryText : theme.text },
-                    ]}>
+                    ]}
+                  >
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -245,7 +314,12 @@ export default function AdminNotificationScreen({ navigation }) {
 
         <View style={styles.section}>
           <Text style={[styles.label, { color: theme.subtext }]}>Title</Text>
-          <View style={[styles.inputWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.inputWrap,
+              { backgroundColor: theme.input, borderColor: theme.border },
+            ]}
+          >
             <TextInput
               style={[styles.input, { color: theme.text }]}
               placeholder="Notification title"
@@ -258,7 +332,12 @@ export default function AdminNotificationScreen({ navigation }) {
 
         <View style={styles.section}>
           <Text style={[styles.label, { color: theme.subtext }]}>Message</Text>
-          <View style={[styles.textAreaWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
+          <View
+            style={[
+              styles.textAreaWrap,
+              { backgroundColor: theme.input, borderColor: theme.border },
+            ]}
+          >
             <TextInput
               style={[styles.textArea, { color: theme.text }]}
               placeholder="Write the message residents will receive..."
@@ -279,13 +358,20 @@ export default function AdminNotificationScreen({ navigation }) {
           ]}
           onPress={onSubmit}
           disabled={submitting}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+        >
           {submitting ? (
             <ActivityIndicator color={theme.primaryText} />
           ) : (
             <>
-              <Ionicons name="send-outline" size={18} color={theme.primaryText} />
-              <Text style={[styles.sendText, { color: theme.primaryText }]}>Send notification</Text>
+              <Ionicons
+                name="send-outline"
+                size={18}
+                color={theme.primaryText}
+              />
+              <Text style={[styles.sendText, { color: theme.primaryText }]}>
+                Send notification
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -345,6 +431,7 @@ const styles = StyleSheet.create({
   residentCopy: { flex: 1 },
   residentName: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
   residentMeta: { fontSize: 12 },
+  emptyText: { fontSize: 13, textAlign: 'center' },
   typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   typeChip: {
     borderRadius: 18,

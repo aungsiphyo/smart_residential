@@ -237,25 +237,27 @@ export default function FloatingChat() {
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [feedbackSendingById, setFeedbackSendingById] = useState({});
+  const [feedbackTarget, setFeedbackTarget] = useState(null);
+  const [feedbackType, setFeedbackType] = useState('incorrect');
+  const [feedbackComment, setFeedbackComment] = useState('');
   const inputRef = useRef(null);
   const listRef = useRef(null);
   const bobAnim = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
-  const voiceReplyEnabledRef = useRef(false);
   const {
     listening,
     voiceAvailable,
     startListening,
     stopListening,
     stopSpeaking,
-    isPlaying,
   } = useVoiceAssistant({
     onVoiceResponse: res => {
-      const userText = res.userTranscript && res.userTranscript !== '[Audio Processing Failed]' 
-        ? `🎤 ${res.userTranscript}` 
-        : '🎤 Voice Message';
+      const userText =
+        res.userTranscript && res.userTranscript !== '[Audio Processing Failed]'
+          ? `🎤 ${res.userTranscript}`
+          : '🎤 Voice Message';
       sendMessage(userText, 'user', { sessionId: activeSessionId });
-      
+
       sendMessage(res.transcript || '🔊 Audio Response', 'bot', {
         sessionId: activeSessionId,
       });
@@ -377,8 +379,6 @@ export default function FloatingChat() {
 
     if (!userText || sending || !targetSessionId) return;
 
-    const shouldSpeakReply = voiceReplyEnabledRef.current;
-    voiceReplyEnabledRef.current = false;
     setText('');
     setSending(true);
 
@@ -425,10 +425,6 @@ export default function FloatingChat() {
           intent: result?.intent || result?.assistantMessage?.intent || null,
         },
       });
-
-      if (shouldSpeakReply) {
-        speak(assistantText);
-      }
     } catch (err) {
       sendMessage(
         err.message || 'AI assistant ချိတ်ဆက်မရပါ။ Backend/Ollama ကိုစစ်ပါ။',
@@ -440,7 +436,7 @@ export default function FloatingChat() {
     }
   }
 
-  async function handleFeedback(item, rating) {
+  async function handleFeedback(item, rating, options = {}) {
     const messageId = item.assistantMessageId;
     const conversationId = item.conversationId || activeSession?.conversationId;
 
@@ -471,7 +467,15 @@ export default function FloatingChat() {
         messageId,
         rating,
         helpful: rating > 0,
+        feedbackType:
+          options.feedbackType || (rating > 0 ? 'helpful' : 'not_helpful'),
+        comment: options.comment || '',
       });
+      if (rating < 0) {
+        setFeedbackTarget(null);
+        setFeedbackComment('');
+        setFeedbackType('incorrect');
+      }
     } catch (err) {
       updateMessage(
         item.id,
@@ -488,6 +492,20 @@ export default function FloatingChat() {
         return next;
       });
     }
+  }
+
+  function openNegativeFeedback(item) {
+    setFeedbackTarget(item);
+    setFeedbackType('incorrect');
+    setFeedbackComment('');
+  }
+
+  function submitDetailedFeedback() {
+    if (!feedbackTarget) return;
+    handleFeedback(feedbackTarget, -1, {
+      feedbackType,
+      comment: feedbackComment.trim(),
+    });
   }
 
   function handleClose() {
@@ -696,7 +714,9 @@ export default function FloatingChat() {
                     {canSendFeedback && (
                       <View style={styles.feedbackRow}>
                         <TouchableOpacity
-                          onPress={() => handleFeedback(item, 1)}
+                          onPress={() =>
+                            handleFeedback(item, 1, { feedbackType: 'helpful' })
+                          }
                           disabled={feedbackBusy}
                           accessibilityLabel="Mark answer helpful"
                           style={[
@@ -730,7 +750,7 @@ export default function FloatingChat() {
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                          onPress={() => handleFeedback(item, -1)}
+                          onPress={() => openNegativeFeedback(item)}
                           disabled={feedbackBusy}
                           accessibilityLabel="Mark answer not helpful"
                           style={[
@@ -789,7 +809,6 @@ export default function FloatingChat() {
                 ref={inputRef}
                 value={text}
                 onChangeText={nextText => {
-                  voiceReplyEnabledRef.current = false;
                   setText(nextText);
                 }}
                 placeholder={listening ? 'Listening...' : 'Type a message'}
@@ -847,6 +866,79 @@ export default function FloatingChat() {
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={Boolean(feedbackTarget)}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setFeedbackTarget(null)}>
+        <View style={styles.feedbackModalLayer}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.feedbackModalScrim}
+            onPress={() => setFeedbackTarget(null)}
+          />
+          <View
+            style={[
+              styles.feedbackModalCard,
+              { backgroundColor: theme.surface, borderColor: theme.border },
+            ]}>
+            <Text style={[styles.feedbackModalTitle, { color: theme.text }]}>How can this answer improve?</Text>
+            <View style={styles.feedbackTypeRow}>
+              {[
+                ['incorrect', 'Incorrect'],
+                ['missing_information', 'Missing info'],
+                ['other', 'Other'],
+              ].map(([value, label]) => {
+                const selected = feedbackType === value;
+                return (
+                  <TouchableOpacity
+                    key={value}
+                    style={[
+                      styles.feedbackTypeChip,
+                      {
+                        backgroundColor: selected ? theme.primaryBg : theme.input,
+                        borderColor: selected ? theme.primary : theme.border,
+                      },
+                    ]}
+                    onPress={() => setFeedbackType(value)}>
+                    <Text style={[styles.feedbackTypeText, { color: selected ? theme.primary : theme.text }]}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TextInput
+              value={feedbackComment}
+              onChangeText={setFeedbackComment}
+              placeholder="Additional comment (optional)"
+              placeholderTextColor={theme.subtext}
+              multiline
+              maxLength={1000}
+              style={[
+                styles.feedbackComment,
+                { backgroundColor: theme.input, borderColor: theme.border, color: theme.text },
+              ]}
+            />
+            <View style={styles.feedbackModalActions}>
+              <TouchableOpacity
+                style={[styles.feedbackCancel, { borderColor: theme.border }]}
+                onPress={() => setFeedbackTarget(null)}>
+                <Text style={{ color: theme.subtext }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.feedbackSubmit, { backgroundColor: theme.primary }]}
+                onPress={submitDetailedFeedback}
+                disabled={Boolean(feedbackSendingById[feedbackTarget?.id])}>
+                {feedbackSendingById[feedbackTarget?.id] ? (
+                  <ActivityIndicator size="small" color={theme.primaryText} />
+                ) : (
+                  <Text style={[styles.feedbackSubmitText, { color: theme.primaryText }]}>Send feedback</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <View pointerEvents="box-none" style={styles.container}>
@@ -1103,6 +1195,39 @@ const styles = StyleSheet.create({
   feedbackButtonDisabled: {
     opacity: 0.65,
   },
+  feedbackModalLayer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  feedbackModalScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  feedbackModalCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  feedbackModalTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12 },
+  feedbackTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  feedbackTypeChip: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 11, paddingVertical: 7 },
+  feedbackTypeText: { fontSize: 12, fontWeight: '700' },
+  feedbackComment: {
+    minHeight: 90,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    textAlignVertical: 'top',
+  },
+  feedbackModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
+  feedbackCancel: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  feedbackSubmit: { minWidth: 120, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
+  feedbackSubmitText: { fontSize: 13, fontWeight: '800' },
   inputRow: {
     flexDirection: 'row',
     padding: 12,

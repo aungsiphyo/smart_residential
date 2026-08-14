@@ -23,6 +23,20 @@ let notifeeModule = null;
 let notifeeLoadAttempted = false;
 let messagingModule = null;
 let messagingLoadAttempted = false;
+const notificationListeners = new Set();
+
+function emitNotificationEvent(remoteMessage) {
+  notificationListeners.forEach(listener => {
+    try {
+      listener(remoteMessage);
+    } catch (err) {}
+  });
+}
+
+export function subscribeToNotificationEvents(listener) {
+  notificationListeners.add(listener);
+  return () => notificationListeners.delete(listener);
+}
 
 function getExport(module, exportName) {
   return module?.[exportName] || module?.default?.[exportName];
@@ -192,6 +206,7 @@ function getChannelId(remoteMessage) {
 }
 
 async function showForegroundNotification(remoteMessage) {
+  emitNotificationEvent(remoteMessage);
   const title = getMessageTitle(remoteMessage);
   const body = getMessageBody(remoteMessage);
   if (!title && !body) return;

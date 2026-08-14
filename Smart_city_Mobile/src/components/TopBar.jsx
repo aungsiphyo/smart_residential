@@ -3,9 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
+import { useNotifications } from '../context/NotificationContext';
 
 export default function TopBar({ navigation, variant = 'main', title }) {
   const { theme } = useTheme();
+  const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
   const isStack = variant === 'stack';
 
@@ -49,7 +51,13 @@ export default function TopBar({ navigation, variant = 'main', title }) {
                 style={[styles.iconBtn, { backgroundColor: theme.card }]}
                 onPress={() => navigation?.navigate('Notifications')}>
                 <Ionicons name="notifications-outline" size={20} color={theme.icon} />
-                <View style={[styles.badge, { backgroundColor: theme.danger }]} />
+                {unreadCount > 0 ? (
+                  <View style={[styles.badge, { backgroundColor: theme.danger }]}>
+                    <Text style={styles.badgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.iconBtn, { backgroundColor: theme.card }]}
@@ -118,8 +126,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
 });

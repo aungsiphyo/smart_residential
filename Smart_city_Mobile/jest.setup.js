@@ -5,12 +5,12 @@ require('react-native-gesture-handler/jestSetup');
 jest.mock('@react-native-async-storage/async-storage', () => {
   const storage = new Map();
   const asyncStorage = {
-    getItem: jest.fn((key) => Promise.resolve(storage.get(key) ?? null)),
+    getItem: jest.fn(key => Promise.resolve(storage.get(key) ?? null)),
     setItem: jest.fn((key, value) => {
       storage.set(key, value);
       return Promise.resolve();
     }),
-    removeItem: jest.fn((key) => {
+    removeItem: jest.fn(key => {
       storage.delete(key);
       return Promise.resolve();
     }),
@@ -18,15 +18,15 @@ jest.mock('@react-native-async-storage/async-storage', () => {
       storage.clear();
       return Promise.resolve();
     }),
-    multiGet: jest.fn((keys) =>
-      Promise.resolve(keys.map((key) => [key, storage.get(key) ?? null])),
+    multiGet: jest.fn(keys =>
+      Promise.resolve(keys.map(key => [key, storage.get(key) ?? null])),
     ),
-    multiSet: jest.fn((pairs) => {
+    multiSet: jest.fn(pairs => {
       pairs.forEach(([key, value]) => storage.set(key, value));
       return Promise.resolve();
     }),
-    multiRemove: jest.fn((keys) => {
-      keys.forEach((key) => storage.delete(key));
+    multiRemove: jest.fn(keys => {
+      keys.forEach(key => storage.delete(key));
       return Promise.resolve();
     }),
   };
@@ -56,6 +56,27 @@ jest.mock('@react-native-voice/voice', () => ({
   stop: jest.fn(() => Promise.resolve()),
   destroy: jest.fn(() => Promise.resolve()),
   removeAllListeners: jest.fn(),
+}));
+
+jest.mock('react-native-audio-recorder-player', () =>
+  jest.fn().mockImplementation(() => ({
+    setSubscriptionDuration: jest.fn(),
+    startRecorder: jest.fn(() => Promise.resolve('test-recording.m4a')),
+    stopRecorder: jest.fn(() => Promise.resolve('test-recording.m4a')),
+    startPlayer: jest.fn(() => Promise.resolve()),
+    stopPlayer: jest.fn(() => Promise.resolve()),
+    addRecordBackListener: jest.fn(),
+    removeRecordBackListener: jest.fn(),
+    addPlayBackListener: jest.fn(),
+    removePlayBackListener: jest.fn(),
+  })),
+);
+
+jest.mock('react-native-fs', () => ({
+  CachesDirectoryPath: '/tmp',
+  DocumentDirectoryPath: '/tmp',
+  exists: jest.fn(() => Promise.resolve(true)),
+  unlink: jest.fn(() => Promise.resolve()),
 }));
 
 jest.mock('react-native-vector-icons/Ionicons', () => 'Ionicons');

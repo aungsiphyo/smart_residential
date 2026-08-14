@@ -50,9 +50,15 @@ const QUICK_ACTIONS = [
   },
   {
     id: 'news',
-    label: 'News',
+    label: 'Announcements',
     icon: 'megaphone-outline',
     screen: 'Announcements',
+  },
+  {
+    id: 'history',
+    label: 'My History',
+    icon: 'time-outline',
+    screen: 'ActivityHistory',
   },
 ];
 
@@ -338,9 +344,13 @@ export default function HomeScreen({ navigation }) {
     user?.email?.split('@')[0] ||
     'Resident';
   const roomNumber = user?.room_number || null;
-  const residenceLabel = roomNumber
+  const residenceLabel = ['Admin', 'Staff'].includes(user?.role)
+    ? user.role === 'Admin'
+      ? 'Administrator'
+      : 'Staff'
+    : roomNumber
     ? `Unit ${roomNumber} · Smart Residential`
-    : 'Resident';
+    : user?.role || 'Resident';
   const timeGreeting = getTimeGreeting(currentTime);
   const quickActions =
     user?.role === 'Admin'
@@ -351,7 +361,18 @@ export default function HomeScreen({ navigation }) {
             icon: 'send-outline',
             screen: 'AdminNotifications',
           },
-          ...QUICK_ACTIONS,
+          ...QUICK_ACTIONS.filter(action => action.id !== 'history').map(
+            action =>
+              action.id === 'helpers'
+                ? { ...action, label: 'Helper Requests' }
+                : action,
+          ),
+          {
+            id: 'resident-reports',
+            label: 'Resident Reports',
+            icon: 'document-text-outline',
+            screen: 'AdminReports',
+          },
         ]
       : QUICK_ACTIONS;
 
@@ -474,6 +495,7 @@ export default function HomeScreen({ navigation }) {
               ))}
             </View>
 
+            {!['Admin', 'Staff'].includes(user?.role) ? (
             <Card style={styles.reportCard}>
               <View style={styles.reportRow}>
                 <View
@@ -514,6 +536,7 @@ export default function HomeScreen({ navigation }) {
                 </Text>
               </TouchableOpacity>
             </Card>
+            ) : null}
 
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Latest announcements

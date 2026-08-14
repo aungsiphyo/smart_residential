@@ -1,20 +1,36 @@
 import React, { useMemo } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 
 const TABS = [
   { name: 'Home', label: 'Home', active: 'home', inactive: 'home-outline' },
-  { name: 'Bills', label: 'Bills', active: 'receipt', inactive: 'receipt-outline' },
+  {
+    name: 'Bills',
+    label: 'Bills',
+    active: 'receipt',
+    inactive: 'receipt-outline',
+  },
   { name: 'SOS', label: '', active: 'alert', inactive: 'alert' },
   {
     name: 'Announcements',
-    label: 'News',
+    label: 'Announcements',
     active: 'megaphone',
     inactive: 'megaphone-outline',
   },
-  { name: 'Profile', label: 'Profile', active: 'person', inactive: 'person-outline' },
+  {
+    name: 'Profile',
+    label: 'Profile',
+    active: 'person',
+    inactive: 'person-outline',
+  },
 ];
 
 export default function BottomNavBar({ navigation, activeRoute }) {
@@ -29,13 +45,13 @@ export default function BottomNavBar({ navigation, activeRoute }) {
     [insets.bottom, theme.tabBar, theme.tabBarBorder],
   );
 
-  const goToTab = (name) => {
+  const goToTab = name => {
     navigation?.navigate('Tabs', { screen: name });
   };
 
   return (
     <View style={[styles.wrapper, wrapperStyle]}>
-      {TABS.map((tab) => {
+      {TABS.map(tab => {
         const focused = activeRoute === tab.name;
 
         if (tab.name === 'SOS') {
@@ -44,7 +60,8 @@ export default function BottomNavBar({ navigation, activeRoute }) {
               key={tab.name}
               style={styles.sosSlot}
               onPress={() => goToTab(tab.name)}
-              activeOpacity={0.85}>
+              activeOpacity={0.85}
+            >
               <View style={[styles.sosFab, focused && styles.sosFabFocused]}>
                 <Ionicons name="alert" size={28} color="#FFFFFF" />
               </View>
@@ -57,17 +74,22 @@ export default function BottomNavBar({ navigation, activeRoute }) {
             key={tab.name}
             style={styles.tab}
             onPress={() => goToTab(tab.name)}
-            activeOpacity={0.75}>
+            activeOpacity={0.75}
+          >
             <Ionicons
               name={focused ? tab.active : tab.inactive}
               size={22}
               color={focused ? theme.primary : theme.inactive}
             />
             <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
               style={[
                 styles.label,
                 { color: focused ? theme.primary : theme.inactive },
-              ]}>
+              ]}
+            >
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -92,7 +114,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   label: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   sosSlot: {

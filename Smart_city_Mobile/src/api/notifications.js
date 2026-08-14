@@ -18,6 +18,25 @@ export async function markAllNotificationsRead() {
   });
 }
 
+export async function fetchUnreadNotificationCount() {
+  const res = await apiRequest('/notifications/unread-count', { auth: true });
+  return Number(res.count || 0);
+}
+
+export async function markNotificationRead(notificationId) {
+  return apiRequest(`/notifications/${notificationId}/read`, {
+    method: 'PUT',
+    auth: true,
+  });
+}
+
+export async function submitNotification(notificationId) {
+  return apiRequest(`/notifications/${notificationId}/submit`, {
+    method: 'POST',
+    auth: true,
+  });
+}
+
 export async function registerDeviceToken(token) {
   return apiRequest('/notifications/device-token', {
     method: 'POST',
