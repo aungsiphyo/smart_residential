@@ -38,19 +38,22 @@ The Version 2 update preserves the existing navigation and resident features whi
 
 ### Bills and resident activity
 
-- Bill data comes from the backend instead of local sample records. Admin/Staff can create a monthly bill for one selected resident or all occupied resident rooms; duplicate room/month bills are skipped safely.
-- Monthly bills support electricity, water, apartment installment, maintenance, service, and other-item breakdowns; the backend calculates the authoritative total.
-- New bills are due seven days after creation and display an unpaid-service warning for electricity and water.
+- Bill data comes from the backend instead of local sample records. Admin/Staff can create category bills for one selected resident or all occupied resident rooms; duplicate room/month/category bills are skipped safely.
+- The backend automatically checks the current `Asia/Yangon` billing month at startup and every six hours. Missing Apartment Installment and Service Fee bills are created separately only for Occupied rooms, and assigning a resident through room management or signup triggers the same idempotent check immediately.
+- Apartment installment, electricity, water, maintenance, service fee, and other charges are independent bills. A resident can pay one category without paying or changing another category.
+- Each non-zero category has its own Admin-selected due date, server-calculated authoritative amount, status, screenshot submission, and payment history. Electricity and water display their category-specific overdue service warning.
+- After a due date passes, an unpaid resident sees a red warning on Home until Admin approval changes every overdue bill to `Paid`; tapping the warning opens Bills.
 - Room purchase plans use authoritative room-type prices: Business `500,000,000 MMK`, Office `1,000,000,000 MMK`, Standard `200,000,000 MMK`, and Premium `300,000,000 MMK`. The recorded 40% down payment leaves 60% payable over 60 monthly installments.
 - Resident bill queries are derived from the authenticated user and assigned room; a client-provided user or room ID cannot expand access.
 - Admin and Staff receive the authorized cross-resident bill view.
-- Tapping a bill opens a detail popup with its exact total, due date, status, and itemized monthly breakdown.
+- Tapping a bill opens a detail popup with its fee category, exact category amount, due date, status, and relevant breakdown.
 - Resident `Pay Now` shows the exact amount and KPay phone number `09965139303`, with copy actions and manual-open instructions. The app does not invent or use an unverified KPay deep link.
 - Residents can upload a JPEG, PNG, or WebP KPay screenshot up to 5 MB. New screenshots are stored privately in MongoDB GridFS and are readable only through an authenticated, ownership-checked endpoint.
 - Uploading a screenshot changes the bill to `Payment Submitted`; it never marks the bill Paid. Admin/Staff can mark it Under Review, approve it, reject it, or request resubmission.
 - Approval atomically finalizes the active submission and changes the bill to `Paid`. Rejected submissions become inactive so the resident can submit a corrected screenshot.
-- Payment approval/rejection and new monthly bills create resident notifications. Admin receives a database/realtime/push notification when a payment proof is submitted.
-- The resident Activity History screen includes visitor registrations, requested helpers, and submitted reports.
+- Payment approval/rejection and new category bills create resident notifications. Admin receives a database/realtime/push notification that identifies the submitting resident, room, fee category, and exact amount.
+- The resident Activity History screen includes visitor registrations, requested helpers, submitted reports, and the signed-in resident's private KPay payment history.
+- Payment History retains each submitted screenshot and shows its room, fee category, expected/submitted amount, submission date, review date, Paid date, Admin status, and rejection/resubmission note. Screenshots open through the authenticated owner-only proof endpoint and are never shared across residents.
 - Report history includes status and acknowledgement information and remains available until the corresponding records are deleted.
 
 ### Announcement lifecycle
@@ -311,6 +314,14 @@ npm run migrate:v2:apply
 
 The migration adds lifecycle defaults to legacy announcements, zero-value breakdown fields to legacy bills, the seven-day payment warning, and missing room-finance values. Existing non-zero room prices and installment progress are preserved. It also creates the billing/payment/room indexes and does not delete bills, announcements, users, or rooms.
 
+### August 2026 billing initialization
+
+On 2026-08-15, the three unassigned legacy/demo bills were copied to the recoverable `servicebill_archives` collection and removed from the active bill list. August 2026 bills were then created for all 30 occupied rooms with the room-type monthly apartment installment, a `1,000 MMK` service fee, and a seven-day due date. Available rooms were not billed. All 30 bills and in-app notifications were verified in MongoDB with no orphan rooms, duplicate room/month keys, service-fee mismatches, or total-calculation mismatches.
+
+After that initial batch, resident `Flex` was assigned to the newly Occupied Standard room `A-S53`. Its missing August 2026 charges were created idempotently for `2,001,000 MMK` (`2,000,000 MMK` installment plus `1,000 MMK` service fee), with a database notification and successful FCM delivery. This brought August coverage to all 31 Occupied rooms.
+
+On 2026-08-15, all 31 still-unpaid combined August records were split transactionally into 31 Apartment Installment bills and 31 Service Fee bills. The original 31 records were copied to the recoverable `servicebill_archives` collection before the split. There were no payment submissions, missing resident links, or category-key conflicts; the total remained exactly `106,031,000 MMK`. The migration created 31 additional in-app notifications. FCM push succeeded for 20 resident accounts with registered device tokens, skipped 11 accounts without tokens, and reported no send failures.
+
 ## Running the App
 
 Start Metro in the first terminal:
@@ -380,10 +391,11 @@ Verification performed for the Version 2 update:
 - Android production JavaScript bundle: generated successfully with all assets.
 - iOS was intentionally not retested in this Android-first phase.
 - Android cold launch: verified twice after force-stop with no fatal runtime or application-registration error.
-- Backend privacy, intent, reviewer, room-scope, visitor-scope, billing-total, exact-amount, private-proof, payment-state, room-finance, audible-push payload, and role-escalation tests: 25 of 25 passed.
+- Backend privacy, intent, reviewer, room-scope, visitor-scope, category-billing, exact-amount, private-proof, payment-state, room-finance, audible-push payload, and role-escalation tests: 30 of 30 passed.
 - MongoDB GridFS proof round-trip in an isolated test database: upload, private metadata, byte-identical download, and cleanup passed.
 - Isolated-database billing E2E: monthly total creation, resident own-room read, exact-amount screenshot submit, Admin queue, owner/Admin private-proof access, Under Review, atomic Paid approval, notification creation, and Paid readback passed.
 - Billing negative/security E2E: cross-room bill read returned `404`, another resident's private proof returned `403`, double approval returned `409`, and resubmission after Paid returned `409`.
+- Category-billing isolated-database E2E: separate Apartment Installment and Service Fee generation, duplicate prevention, resident scope, private GridFS proof access, Admin room/category visibility, and Service Fee-only approval passed; the separate installment remained Pending and installment progress remained unchanged.
 - Isolated-database maintenance E2E: Active notice was visible to its resident audience, completion changed it to `Completed` and removed it from the resident active list, notification records were created, and archive changed it to `Archived` without reactivating it.
 - The isolated test database and temporary private payment-proof directory were removed immediately after verification.
 - Remote MongoDB V2 migration dry-run: connected successfully and reported 8 legacy announcements and 3 legacy bills; no production data was changed by the dry-run.
