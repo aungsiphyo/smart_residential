@@ -26,6 +26,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchAnnouncements } from '../../api/announcements';
 import { fetchAdvertisements } from '../../api/advertisements';
+import { fetchBills } from '../../api/bills';
 import { fetchProfile } from '../../api/profile';
 
 const QUICK_ACTIONS = [
@@ -336,6 +337,7 @@ export default function HomeScreen({ navigation }) {
   const [currentTime, setCurrentTime] = useState(() => new Date());
   const [announcements, setAnnouncements] = useState([]);
   const [advertisements, setAdvertisements] = useState([]);
+  const [residentBills, setResidentBills] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [loadingAdvertisements, setLoadingAdvertisements] = useState(true);
   const displayName =
@@ -352,6 +354,21 @@ export default function HomeScreen({ navigation }) {
     ? `Unit ${roomNumber} · Smart Residential`
     : user?.role || 'Resident';
   const timeGreeting = getTimeGreeting(currentTime);
+  const isResident = !['Admin', 'Staff'].includes(user?.role);
+  const overdueBills = useMemo(
+    () =>
+      isResident
+        ? residentBills.filter(bill => {
+            const dueAt = new Date(bill?.due_date).getTime();
+            return (
+              bill?.status !== 'Paid' &&
+              Number.isFinite(dueAt) &&
+              dueAt < currentTime.getTime()
+            );
+          })
+        : [],
+    [currentTime, isResident, residentBills],
+  );
   const quickActions =
     user?.role === 'Admin'
       ? [
@@ -424,13 +441,34 @@ export default function HomeScreen({ navigation }) {
     }
   }, []);
 
+  const loadResidentBills = useCallback(async () => {
+    if (!isResident) {
+      setResidentBills([]);
+      return;
+    }
+
+    try {
+      setResidentBills(await fetchBills());
+    } catch (err) {
+      // Keep the last successful result during a temporary network failure so
+      // an existing overdue warning does not disappear incorrectly.
+      if (err.sessionExpired) setResidentBills([]);
+    }
+  }, [isResident]);
+
   useFocusEffect(
     useCallback(() => {
       setCurrentTime(new Date());
       refreshProfile();
       loadAnnouncements();
       loadAdvertisements();
-    }, [loadAdvertisements, loadAnnouncements, refreshProfile]),
+      loadResidentBills();
+    }, [
+      loadAdvertisements,
+      loadAnnouncements,
+      loadResidentBills,
+      refreshProfile,
+    ]),
   );
 
   return (
@@ -457,6 +495,46 @@ export default function HomeScreen({ navigation }) {
                 {residenceLabel}
               </Text>
             </View>
+
+            {overdueBills.length > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.86}
+                onPress={() => navigateTo('Bills')}
+                style={[
+                  styles.overdueBanner,
+                  {
+                    backgroundColor: theme.dangerBg,
+                    borderColor: theme.danger,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="warning-outline"
+                  size={24}
+                  color={theme.danger}
+                />
+                <View style={styles.overdueCopy}>
+                  <Text
+                    style={[styles.overdueTitle, { color: theme.danger }]}
+                  >
+                    Payment overdue
+                  </Text>
+                  <Text
+                    style={[styles.overdueMessage, { color: theme.danger }]}
+                  >
+                    {overdueBills.length}{' '}
+                    {overdueBills.length === 1 ? 'bill is' : 'bills are'} past
+                    due. Please pay now to avoid electricity and water service
+                    suspension.
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={theme.danger}
+                />
+              </TouchableOpacity>
+            ) : null}
 
             <AdvertisementCarousel
               advertisements={advertisements}
@@ -609,6 +687,19 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sub: { fontSize: 14 },
+  overdueBanner: {
+    minHeight: 92,
+    marginBottom: 24,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  overdueCopy: { flex: 1 },
+  overdueTitle: { fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  overdueMessage: { fontSize: 13, fontWeight: '600', lineHeight: 19 },
   adsSection: {
     marginBottom: 28,
   },

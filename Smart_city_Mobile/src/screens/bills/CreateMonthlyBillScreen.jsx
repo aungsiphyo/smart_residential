@@ -33,6 +33,11 @@ const COMMON_COMPONENTS = [
   ['service_amount', 'Service fee'],
   ['other_amount', 'Other'],
 ];
+const INSTALLMENT_KEY = 'installment_amount';
+const ALL_CATEGORY_KEYS = [
+  INSTALLMENT_KEY,
+  ...COMMON_COMPONENTS.map(([key]) => key),
+];
 
 function money(value) {
   const amount = Number(value || 0);
@@ -71,7 +76,10 @@ export default function CreateMonthlyBillScreen({ navigation }) {
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [year, setYear] = useState(String(now.getFullYear()));
   const [title, setTitle] = useState('');
-  const [components, setComponents] = useState({});
+  const [components, setComponents] = useState({ service_amount: '1000' });
+  const [dueDates, setDueDates] = useState(() =>
+    Object.fromEntries(ALL_CATEGORY_KEYS.map(key => [key, defaultDueDate()])),
+  );
   const [otherDescription, setOtherDescription] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -128,6 +136,15 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       0,
     );
   }, [commonTotal, rooms, selectedFinance, target]);
+  const activeCategoryKeys = useMemo(() => {
+    const keys = COMMON_COMPONENTS.filter(([key]) => money(components[key]) > 0)
+      .map(([key]) => key);
+    const hasInstallment =
+      target === 'one'
+        ? money(selectedFinance?.installment) > 0
+        : rooms.some(room => money(roomFinance(room)?.installment) > 0);
+    return hasInstallment ? [INSTALLMENT_KEY, ...keys] : keys;
+  }, [components, rooms, selectedFinance, target]);
 
   const submit = async () => {
     if (target === 'one' && !selectedRoom) {
@@ -158,6 +175,18 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       );
       return;
     }
+    const invalidDueDate = activeCategoryKeys.find(key => {
+      const value = dueDates[key];
+      return !/^\d{4}-\d{2}-\d{2}$/.test(value || '') ||
+        Number.isNaN(new Date(`${value}T23:59:59+06:30`).getTime());
+    });
+    if (invalidDueDate) {
+      Alert.alert(
+        'Invalid due date',
+        'Enter every selected category due date as YYYY-MM-DD.',
+      );
+      return;
+    }
 
     const payload = {
       billing_month: Number(month),
@@ -168,6 +197,9 @@ export default function CreateMonthlyBillScreen({ navigation }) {
         COMMON_COMPONENTS.map(([key]) => [key, money(components[key])]),
       ),
       other_description: otherDescription.trim(),
+      category_due_dates: Object.fromEntries(
+        activeCategoryKeys.map(key => [key, dueDates[key]]),
+      ),
     };
 
     setSubmitting(true);
@@ -175,10 +207,10 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       if (target === 'all') {
         const response = await createMonthlyBillsForAll(payload);
         Alert.alert(
-          'Monthly bills created',
-          `${response.created_count || 0} resident bills created. ${
+          'Category bills created',
+          `${response.created_count || 0} separate category bills created. ${
             response.skipped_count || 0
-          } existing monthly bills skipped.`,
+          } existing room/category bills skipped.`,
           [{ text: 'OK', onPress: () => navigation.goBack() }],
         );
       } else {
@@ -187,10 +219,10 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           room_id: selectedRoom._id,
         });
         Alert.alert(
-          'Monthly bill created',
-          `Room ${selectedRoom.room_name} was billed ${formatMoney(
-            response.bill?.amount || estimatedTotal,
-          )}.`,
+          'Category bills created',
+          `${response.created_count || response.bills?.length || 0} separate bills were created for Room ${
+            selectedRoom.room_name
+          }. Combined value: ${formatMoney(estimatedTotal)}.`,
           [{ text: 'OK', onPress: () => navigation.goBack() }],
         );
       }
@@ -339,8 +371,8 @@ export default function CreateMonthlyBillScreen({ navigation }) {
                 color={theme.primary}
               />
               <Text style={[styles.infoText, { color: theme.subtext }]}>
-                One bill will be created for every occupied room. Existing bills
-                for the same month are safely skipped.
+                Each selected fee becomes a separate payable bill for every
+                occupied room. Existing room/month/category bills are skipped.
               </Text>
             </View>
           )}
@@ -417,11 +449,11 @@ export default function CreateMonthlyBillScreen({ navigation }) {
             <Ionicons name="time-outline" size={19} color={theme.warning} />
             <View style={styles.flex}>
               <Text style={[styles.deadlineTitle, { color: theme.text }]}>
-                Due in 7 days
+                Independent payment deadlines
               </Text>
               <Text style={[styles.deadlineText, { color: theme.subtext }]}>
-                Due {defaultDueDate()}. Unpaid electricity and water services
-                may be suspended after this date.
+                Set a due date for every non-zero category below. Residents can
+                pay each category separately.
               </Text>
             </View>
           </View>
@@ -446,30 +478,55 @@ export default function CreateMonthlyBillScreen({ navigation }) {
 
         <Card>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Bill breakdown
+            Separate bill categories
           </Text>
           {COMMON_COMPONENTS.map(([key, label]) => (
-            <View key={key} style={styles.amountRow}>
-              <Text style={[styles.componentLabel, { color: theme.text }]}>
-                {label}
-              </Text>
-              <TextInput
-                style={[
-                  styles.amountInput,
-                  {
-                    color: theme.text,
-                    backgroundColor: theme.input,
-                    borderColor: theme.border,
-                  },
-                ]}
-                value={components[key] || ''}
-                onChangeText={value =>
-                  setComponents(current => ({ ...current, [key]: value }))
-                }
-                keyboardType="decimal-pad"
-                placeholder="0"
-                placeholderTextColor={theme.inactive}
-              />
+            <View key={key} style={styles.categoryBlock}>
+              <View style={styles.amountRow}>
+                <Text style={[styles.componentLabel, { color: theme.text }]}>
+                  {label}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.amountInput,
+                    {
+                      color: theme.text,
+                      backgroundColor: theme.input,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                  value={components[key] || ''}
+                  onChangeText={value =>
+                    setComponents(current => ({ ...current, [key]: value }))
+                  }
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor={theme.inactive}
+                />
+              </View>
+              {money(components[key]) > 0 ? (
+                <View style={styles.dueInputRow}>
+                  <Text style={[styles.dueLabel, { color: theme.subtext }]}>
+                    {label} due date
+                  </Text>
+                  <TextInput
+                    style={[
+                      styles.dueInput,
+                      {
+                        color: theme.text,
+                        backgroundColor: theme.input,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    value={dueDates[key]}
+                    onChangeText={value =>
+                      setDueDates(current => ({ ...current, [key]: value }))
+                    }
+                    placeholder="YYYY-MM-DD"
+                    placeholderTextColor={theme.inactive}
+                  />
+                </View>
+              ) : null}
             </View>
           ))}
           <View style={[styles.automaticRow, { backgroundColor: theme.input }]}>
@@ -487,6 +544,32 @@ export default function CreateMonthlyBillScreen({ navigation }) {
                 : 'Per room'}
             </Text>
           </View>
+          {activeCategoryKeys.includes(INSTALLMENT_KEY) ? (
+            <View style={styles.dueInputRow}>
+              <Text style={[styles.dueLabel, { color: theme.subtext }]}>
+                Installment due date
+              </Text>
+              <TextInput
+                style={[
+                  styles.dueInput,
+                  {
+                    color: theme.text,
+                    backgroundColor: theme.input,
+                    borderColor: theme.border,
+                  },
+                ]}
+                value={dueDates[INSTALLMENT_KEY]}
+                onChangeText={value =>
+                  setDueDates(current => ({
+                    ...current,
+                    [INSTALLMENT_KEY]: value,
+                  }))
+                }
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={theme.inactive}
+              />
+            </View>
+          ) : null}
           {money(components.other_amount) > 0 ? (
             <TextInput
               style={[
@@ -507,8 +590,10 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           <View style={[styles.totalRow, { borderTopColor: theme.border }]}>
             <Text style={[styles.totalLabel, { color: theme.subtext }]}>
               {target === 'all'
-                ? 'Estimated all-room total'
-                : 'Server-verified total'}
+                ? 'Estimated value across separate bills'
+                : `${activeCategoryKeys.length} separately payable bill${
+                    activeCategoryKeys.length === 1 ? '' : 's'
+                  }`}
             </Text>
             <Text style={[styles.total, { color: theme.text }]}>
               {formatMoney(estimatedTotal)}
@@ -532,8 +617,8 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           )}
           <Text style={[styles.submitText, { color: theme.primaryText }]}>
             {target === 'all'
-              ? 'Create bills for all residents'
-              : 'Create monthly bill'}
+              ? 'Create category bills for all'
+              : 'Create separate category bills'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -610,8 +695,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 9,
   },
+  categoryBlock: { marginBottom: 12 },
   componentLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
   amountInput: {
     width: 130,
@@ -629,6 +714,22 @@ const styles = StyleSheet.create({
     marginBottom: 9,
   },
   autoHint: { fontSize: 11, marginTop: 2 },
+  dueInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 7,
+  },
+  dueLabel: { flex: 1, fontSize: 11, fontWeight: '600' },
+  dueInput: {
+    width: 150,
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    textAlign: 'center',
+  },
   totalRow: {
     borderTopWidth: 1,
     marginTop: 8,
