@@ -37,6 +37,8 @@
 	<string></string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SmartRes uses the microphone for assistant voice commands.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Prime City uses your photo library only when you choose a profile photo.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>SmartRes uses speech recognition to turn voice commands into chat text.</string>
 	<key>RCTNewArchEnabled</key>

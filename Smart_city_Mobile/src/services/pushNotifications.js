@@ -1,4 +1,4 @@
-import { PermissionsAndroid, Platform } from 'react-native';
+import { Linking, PermissionsAndroid, Platform } from 'react-native';
 import { registerDeviceToken } from '../api/notifications';
 
 const FALLBACK_ANDROID_IMPORTANCE = {
@@ -12,9 +12,9 @@ const FALLBACK_AUTHORIZATION_STATUS = {
 };
 
 export const CHANNELS = {
-  urgent: 'urgent_alerts',
-  community: 'community_updates',
-  helper: 'helper_requests',
+  urgent: 'urgent_alerts_v2',
+  community: 'community_updates_v2',
+  helper: 'helper_requests_v2',
 };
 
 let foregroundUnsubscribe = null;
@@ -46,7 +46,8 @@ function getFirebaseApp() {
   try {
     const firebaseApp = require('@react-native-firebase/app');
     const getApps = getExport(firebaseApp, 'getApps');
-    const getApp = getExport(firebaseApp, 'getApp') || getExport(firebaseApp, 'app');
+    const getApp =
+      getExport(firebaseApp, 'getApp') || getExport(firebaseApp, 'app');
 
     if (typeof getApps === 'function') {
       const apps = getApps();
@@ -137,21 +138,29 @@ async function createNotificationChannels() {
     module.notifee.createChannel({
       id: CHANNELS.urgent,
       name: 'Urgent alerts',
+      description: 'Emergency and SOS alerts requiring immediate attention',
       importance: module.AndroidImportance.HIGH,
       sound: 'default',
       vibration: true,
+      vibrationPattern: [300, 500],
     }),
     module.notifee.createChannel({
       id: CHANNELS.community,
       name: 'Community updates',
-      importance: module.AndroidImportance.DEFAULT,
+      description: 'Prime City announcements, bills and account updates',
+      importance: module.AndroidImportance.HIGH,
       sound: 'default',
+      vibration: true,
+      vibrationPattern: [300, 500],
     }),
     module.notifee.createChannel({
       id: CHANNELS.helper,
       name: 'Helper requests',
-      importance: module.AndroidImportance.DEFAULT,
+      description: 'Updates about resident helper requests',
+      importance: module.AndroidImportance.HIGH,
       sound: 'default',
+      vibration: true,
+      vibrationPattern: [300, 500],
     }),
   ]);
 }
@@ -223,8 +232,19 @@ async function showForegroundNotification(remoteMessage) {
       channelId: getChannelId(remoteMessage),
       pressAction: { id: 'default' },
       sound: 'default',
+      importance: module.AndroidImportance.HIGH,
+      vibrationPattern: [300, 500],
     },
   });
+}
+
+export async function openSystemNotificationSettings() {
+  const module = getNotifeeModule();
+  if (module?.notifee?.openNotificationSettings) {
+    await module.notifee.openNotificationSettings();
+    return;
+  }
+  await Linking.openSettings();
 }
 
 export function registerBackgroundNotificationHandler() {
@@ -235,13 +255,10 @@ export function registerBackgroundNotificationHandler() {
     const messaging = getMessagingInstance(module);
     if (!messaging) return;
 
-    module.setBackgroundMessageHandler(
-      messaging,
-      async remoteMessage => {
-        if (remoteMessage?.notification) return;
-        await showForegroundNotification(remoteMessage);
-      },
-    );
+    module.setBackgroundMessageHandler(messaging, async remoteMessage => {
+      if (remoteMessage?.notification) return;
+      await showForegroundNotification(remoteMessage);
+    });
   } catch (err) {
     console.warn('Background push handler setup failed:', err.message);
   }

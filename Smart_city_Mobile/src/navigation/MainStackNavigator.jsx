@@ -9,6 +9,10 @@ import AdminNotificationScreen from '../screens/admin/AdminNotificationScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
 import ReportIssueScreen from '../screens/reports/ReportIssueScreen';
 import ResidentActivityHistoryScreen from '../screens/history/ResidentActivityHistoryScreen';
+import ProfileSettingsScreen from '../screens/profile/ProfileSettingsScreen';
+import BillPaymentScreen from '../screens/bills/BillPaymentScreen';
+import CreateMonthlyBillScreen from '../screens/bills/CreateMonthlyBillScreen';
+import AdminPaymentReviewScreen from '../screens/bills/AdminPaymentReviewScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -26,7 +30,20 @@ export default function MainStackNavigator() {
       />
       <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
-      <Stack.Screen name="ActivityHistory" component={ResidentActivityHistoryScreen} />
+      <Stack.Screen
+        name="ActivityHistory"
+        component={ResidentActivityHistoryScreen}
+      />
+      <Stack.Screen name="ProfileSettings" component={ProfileSettingsScreen} />
+      <Stack.Screen name="BillPayment" component={BillPaymentScreen} />
+      <Stack.Screen
+        name="CreateMonthlyBill"
+        component={CreateMonthlyBillScreen}
+      />
+      <Stack.Screen
+        name="AdminPaymentReview"
+        component={AdminPaymentReviewScreen}
+      />
     </Stack.Navigator>
   );
 }

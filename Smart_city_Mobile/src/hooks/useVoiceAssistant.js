@@ -12,7 +12,7 @@ export default function useVoiceAssistant({
   onError,
 } = {}) {
   const [listening, setListening] = useState(false);
-  const [voiceAvailable, setVoiceAvailable] = useState(true);
+  const voiceAvailable = true;
   const [voiceError, setVoiceError] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
   const mountedRef = useRef(true);

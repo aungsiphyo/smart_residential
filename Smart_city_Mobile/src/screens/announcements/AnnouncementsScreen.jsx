@@ -5,6 +5,7 @@ import {
   FlatList,
   StyleSheet,
   ActivityIndicator,
+  Alert,
   RefreshControl,
   TouchableOpacity,
 } from 'react-native';
@@ -13,7 +14,12 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
 import { useTheme } from '../../context/ThemeContext';
-import { fetchAnnouncements } from '../../api/announcements';
+import { useAuth } from '../../context/AuthContext';
+import {
+  archiveAnnouncement,
+  completeMaintenanceAnnouncement,
+  fetchAnnouncements,
+} from '../../api/announcements';
 
 const TYPE_META = {
   General: { icon: 'information-circle-outline', colorKey: 'primary' },
@@ -30,10 +36,13 @@ function formatDate(value) {
 
 export default function AnnouncementsScreen({ navigation }) {
   const { theme } = useTheme();
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [actionId, setActionId] = useState(null);
+  const isAdmin = ['Admin', 'Staff'].includes(user?.role);
 
   const loadAnnouncements = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -41,13 +50,18 @@ export default function AnnouncementsScreen({ navigation }) {
     setError(null);
 
     try {
-      const data = await fetchAnnouncements({ limit: 50 });
+      const data = await fetchAnnouncements({
+        limit: 50,
+        includeArchived: isAdmin,
+      });
       setItems(
         data.map((item) => ({
           id: item._id,
           title: item.title,
           message: item.message,
           type: item.type,
+          status: item.status || 'Active',
+          audienceType: item.audience_type || 'All Residents',
           date: formatDate(item.created_at),
         })),
       );
@@ -58,7 +72,49 @@ export default function AnnouncementsScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [isAdmin]);
+
+  const runAction = async (item, action) => {
+    setActionId(item.id);
+    try {
+      const response =
+        action === 'complete'
+          ? await completeMaintenanceAnnouncement(item.id)
+          : await archiveAnnouncement(item.id);
+      const count = Number(response.delivery?.recipientCount || 0);
+      Alert.alert(
+        action === 'complete' ? 'Maintenance completed' : 'Announcement archived',
+        count
+          ? `${count} affected resident${count === 1 ? '' : 's'} received a notification.`
+          : 'The announcement lifecycle was updated.',
+      );
+      await loadAnnouncements(true);
+    } catch (err) {
+      if (!err.sessionExpired) {
+        Alert.alert('Unable to update', err.message || 'Please try again.');
+      }
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const confirmAction = (item, action) => {
+    const completing = action === 'complete';
+    Alert.alert(
+      completing ? 'Complete maintenance?' : 'Archive announcement?',
+      completing
+        ? 'Residents affected by this maintenance will be notified and the notice will stop appearing in their active list.'
+        : 'This removes the notice from resident lists while retaining its audit history.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: completing ? 'Complete' : 'Archive',
+          style: completing ? 'default' : 'destructive',
+          onPress: () => runAction(item, action),
+        },
+      ],
+    );
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -85,6 +141,37 @@ export default function AnnouncementsScreen({ navigation }) {
           </View>
         </View>
         <Text style={[styles.cardText, { color: theme.subtext }]}>{item.message}</Text>
+        {isAdmin ? (
+          <View style={styles.adminMeta}>
+            <Text style={[styles.lifecycleText, { color: theme.subtext }]}>
+              {item.status} · {item.audienceType}
+            </Text>
+            <View style={styles.actionRow}>
+              {item.type === 'Maintenance' && item.status === 'Active' ? (
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: theme.successBg }]}
+                  onPress={() => confirmAction(item, 'complete')}
+                  disabled={actionId === item.id}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={theme.success} />
+                  <Text style={[styles.actionText, { color: theme.success }]}>Complete</Text>
+                </TouchableOpacity>
+              ) : null}
+              {item.status !== 'Archived' ? (
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: theme.dangerBg }]}
+                  onPress={() => confirmAction(item, 'archive')}
+                  disabled={actionId === item.id}>
+                  {actionId === item.id ? (
+                    <ActivityIndicator size="small" color={theme.danger} />
+                  ) : (
+                    <Ionicons name="archive-outline" size={16} color={theme.danger} />
+                  )}
+                  <Text style={[styles.actionText, { color: theme.danger }]}>Archive</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
       </Card>
     );
   };
@@ -158,6 +245,18 @@ const styles = StyleSheet.create({
   typeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   typeText: { fontSize: 11, fontWeight: '600' },
   cardText: { fontSize: 14, lineHeight: 20 },
+  adminMeta: { marginTop: 14, gap: 10 },
+  lifecycleText: { fontSize: 12, fontWeight: '600' },
+  actionRow: { flexDirection: 'row', gap: 8 },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  actionText: { fontSize: 12, fontWeight: '700' },
   centered: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 10 },
   emptyText: { fontSize: 15, textAlign: 'center' },
   retryBtn: { marginTop: 4, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 },

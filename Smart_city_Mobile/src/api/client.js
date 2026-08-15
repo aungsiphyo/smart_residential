@@ -20,8 +20,10 @@ export async function getRefreshToken() {
 
 export async function setTokens({ accessToken, refreshToken }) {
   const ops = [];
-  if (accessToken) ops.push(AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken));
-  if (refreshToken) ops.push(AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken));
+  if (accessToken)
+    ops.push(AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken));
+  if (refreshToken)
+    ops.push(AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken));
   await Promise.all(ops);
 }
 
@@ -52,15 +54,20 @@ async function refreshAccessToken() {
   return null;
 }
 
-export async function apiRequest(path, { method = 'GET', body, auth = false, retry = true } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+export async function apiRequest(
+  path,
+  { method = 'GET', body, auth = false, retry = true } = {},
+) {
+  const isMultipart =
+    body != null && typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers = isMultipart ? {} : { 'Content-Type': 'application/json' };
   let token = auth ? await getAccessToken() : null;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
-    body: body != null ? JSON.stringify(body) : undefined,
+    body: body == null ? undefined : isMultipart ? body : JSON.stringify(body),
   });
 
   if (res.status === 401 && auth && retry) {
@@ -79,7 +86,8 @@ export async function apiRequest(path, { method = 'GET', body, auth = false, ret
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const message = data.message || data.error || `Request failed (${res.status})`;
+    const message =
+      data.message || data.error || `Request failed (${res.status})`;
     const err = new Error(message);
     err.status = res.status;
     err.data = data;

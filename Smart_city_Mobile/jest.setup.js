@@ -81,6 +81,10 @@ jest.mock('react-native-fs', () => ({
 
 jest.mock('react-native-vector-icons/Ionicons', () => 'Ionicons');
 
+jest.mock('react-native-image-picker', () => ({
+  launchImageLibrary: jest.fn(() => Promise.resolve({ didCancel: true })),
+}));
+
 jest.mock('@notifee/react-native', () => ({
   __esModule: true,
   default: {
