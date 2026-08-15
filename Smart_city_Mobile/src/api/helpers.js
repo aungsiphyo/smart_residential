@@ -44,3 +44,11 @@ export async function fetchHelperRequests(params = {}) {
   );
   return Array.isArray(res) ? res : res.data || [];
 }
+
+export async function submitHelperRequest(requestId) {
+  const res = await apiRequest(`/helper-requests/${requestId}/submit`, {
+    method: 'POST',
+    auth: true,
+  });
+  return res.data || res.request;
+}

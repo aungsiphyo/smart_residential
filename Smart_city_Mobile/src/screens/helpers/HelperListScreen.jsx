@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -19,6 +20,7 @@ import {
   fetchHelperRequests,
   fetchHelpers,
   fetchMyHelperRequests,
+  submitHelperRequest,
 } from '../../api/helpers';
 
 function getExperienceText(value) {
@@ -36,6 +38,7 @@ export default function HelperListScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [submittingId, setSubmittingId] = useState(null);
   const isAdmin = ['Admin', 'Staff'].includes(user?.role);
 
   const activeRequestCount = requests.filter(
@@ -81,6 +84,46 @@ export default function HelperListScreen({ navigation }) {
       loadHelpers();
     }, [loadHelpers]),
   );
+
+  const confirmSubmitRequest = item => {
+    if (item.submitted_at || submittingId) return;
+
+    const residentName = item.requested_by?.fullname || 'this resident';
+    Alert.alert(
+      'Submit helper request',
+      `Accept this request and notify ${residentName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Submit',
+          onPress: async () => {
+            setSubmittingId(item._id);
+            try {
+              const updated = await submitHelperRequest(item._id);
+              setRequests(current =>
+                current.map(request =>
+                  request._id === item._id ? updated : request,
+                ),
+              );
+              Alert.alert(
+                'Submitted',
+                'The helper request was accepted and the resident was notified.',
+              );
+            } catch (err) {
+              if (!err.sessionExpired) {
+                Alert.alert(
+                  'Unable to submit',
+                  err.message || 'Please try again.',
+                );
+              }
+            } finally {
+              setSubmittingId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const renderHelper = ({ item }) => (
     <Card>
@@ -150,6 +193,8 @@ export default function HelperListScreen({ navigation }) {
     const resident = item.requested_by;
     const helper = item.helper_id;
     const completed = item.status === 'Completed';
+    const submitted = Boolean(item.submitted_at);
+    const isSubmitting = submittingId === item._id;
     const statusColor = completed ? theme.success : theme.warning;
     const statusBackground = completed ? theme.successBg : theme.warningBg;
 
@@ -201,6 +246,36 @@ export default function HelperListScreen({ navigation }) {
             </Text>
           ) : null}
         </View>
+        <TouchableOpacity
+          style={[
+            styles.submitBtn,
+            {
+              backgroundColor: submitted ? theme.successBg : theme.primary,
+              borderColor: submitted ? theme.success : theme.primary,
+            },
+          ]}
+          onPress={() => confirmSubmitRequest(item)}
+          disabled={submitted || isSubmitting}
+          activeOpacity={0.85}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator size="small" color={theme.primaryText} />
+          ) : (
+            <Ionicons
+              name={submitted ? 'checkmark-circle' : 'send-outline'}
+              size={18}
+              color={submitted ? theme.success : theme.primaryText}
+            />
+          )}
+          <Text
+            style={[
+              styles.submitText,
+              { color: submitted ? theme.success : theme.primaryText },
+            ]}
+          >
+            {submitted ? 'Submitted' : 'Submit & notify resident'}
+          </Text>
+        </TouchableOpacity>
       </Card>
     );
   };
@@ -331,6 +406,17 @@ const styles = StyleSheet.create({
   requestDetails: { marginTop: 10, gap: 4 },
   requestDetail: { fontSize: 13 },
   requestNote: { fontSize: 14, lineHeight: 20, marginTop: 5 },
+  submitBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 11,
+    marginTop: 14,
+  },
+  submitText: { fontSize: 14, fontWeight: '700' },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',

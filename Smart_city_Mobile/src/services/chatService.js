@@ -122,11 +122,21 @@ export async function loadChatHistory() {
 
 export async function loadChatSessions() {
   try {
-    const data = await apiRequest('/ai/history?limit=2000', {
-      method: 'GET',
-      auth: true,
-    });
-    return Array.isArray(data.sessions) ? data.sessions : [];
+    const sessions = [];
+    let page = 1;
+    let pages = 1;
+
+    do {
+      const data = await apiRequest(
+        `/ai/history/sessions?page=${page}&limit=50`,
+        { method: 'GET', auth: true },
+      );
+      if (Array.isArray(data.sessions)) sessions.push(...data.sessions);
+      pages = Math.max(1, Number(data.pagination?.pages) || 1);
+      page += 1;
+    } while (page <= pages);
+
+    return sessions;
   } catch (err) {
     if (err.status === 401) return [];
     throw err;

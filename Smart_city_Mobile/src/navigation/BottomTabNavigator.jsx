@@ -19,6 +19,22 @@ const TAB_ICONS = {
   Profile: { active: 'person', inactive: 'person-outline' },
 };
 
+function createTabBarIcon(routeName) {
+  return function TabBarIcon({ color, focused }) {
+    const icons = TAB_ICONS[routeName];
+    const name = focused ? icons.active : icons.inactive;
+    return <Ionicons name={name} size={22} color={color} />;
+  };
+}
+
+const TAB_BAR_ICON_RENDERERS = {
+  Home: createTabBarIcon('Home'),
+  Bills: createTabBarIcon('Bills'),
+  SOS: () => null,
+  Announcements: createTabBarIcon('Announcements'),
+  Profile: createTabBarIcon('Profile'),
+};
+
 function SosTabButton({ onPress, accessibilityState }) {
   const focused = accessibilityState?.selected;
   return (
@@ -57,12 +73,7 @@ export default function BottomTabNavigator() {
           fontWeight: '600',
           marginTop: 2,
         },
-        tabBarIcon: ({ color, focused }) => {
-          if (route.name === 'SOS') return null;
-          const icons = TAB_ICONS[route.name];
-          const name = focused ? icons.active : icons.inactive;
-          return <Ionicons name={name} size={22} color={color} />;
-        },
+        tabBarIcon: TAB_BAR_ICON_RENDERERS[route.name],
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
@@ -73,7 +84,7 @@ export default function BottomTabNavigator() {
         component={SosScreen}
         options={{
           tabBarLabel: () => null,
-          tabBarButton: props => <SosTabButton {...props} />,
+          tabBarButton: SosTabButton,
         }}
       />
       <Tab.Screen name="Announcements" component={AnnouncementsScreen} />

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -110,11 +111,22 @@ export default function ProfileScreen({ navigation }) {
         ) : (
           <>
             <View style={styles.avatarSection}>
-              <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
-                <Text style={[styles.avatarText, { color: theme.primaryText }]}>
-                  {getInitials(profile?.fullname)}
-                </Text>
-              </View>
+              {profile?.profile_image ? (
+                <Image
+                  source={{ uri: profile.profile_image }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View
+                  style={[styles.avatar, { backgroundColor: theme.primary }]}
+                >
+                  <Text
+                    style={[styles.avatarText, { color: theme.primaryText }]}
+                  >
+                    {getInitials(profile?.fullname)}
+                  </Text>
+                </View>
+              )}
               <Text style={[styles.name, { color: theme.text }]}>
                 {profile?.fullname}
               </Text>
@@ -136,10 +148,8 @@ export default function ProfileScreen({ navigation }) {
                   key={field.key}
                   style={[
                     styles.fieldRow,
-                    index < PROFILE_FIELDS.length - 1 && {
-                      borderBottomWidth: 1,
-                      borderBottomColor: theme.border,
-                    },
+                    index < PROFILE_FIELDS.length - 1 && styles.fieldDivider,
+                    { borderBottomColor: theme.border },
                   ]}
                 >
                   <View
@@ -197,16 +207,36 @@ export default function ProfileScreen({ navigation }) {
               </View>
             </Card>
 
-            <TouchableOpacity
-              style={[styles.logoutBtn, { borderColor: theme.danger }]}
-              onPress={onSignOut}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="log-out-outline" size={18} color={theme.danger} />
-              <Text style={[styles.logoutText, { color: theme.danger }]}>
-                Sign out
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.accountActions}>
+              <TouchableOpacity
+                style={[styles.actionBtn, { borderColor: theme.border }]}
+                onPress={() => navigation.navigate('ProfileSettings')}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="settings-outline"
+                  size={18}
+                  color={theme.text}
+                />
+                <Text style={[styles.actionText, { color: theme.text }]}>
+                  Settings
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, { borderColor: theme.danger }]}
+                onPress={onSignOut}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="log-out-outline"
+                  size={18}
+                  color={theme.danger}
+                />
+                <Text style={[styles.actionText, { color: theme.danger }]}>
+                  Sign out
+                </Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
       </View>
@@ -239,6 +269,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
+  avatarImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginBottom: 12,
+  },
   avatarText: { fontSize: 24, fontWeight: '700' },
   name: { fontSize: 22, fontWeight: '700', marginBottom: 4 },
   unit: { fontSize: 14 },
@@ -248,6 +284,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
   },
+  fieldDivider: { borderBottomWidth: 1 },
   fieldIcon: {
     width: 36,
     height: 36,
@@ -261,15 +298,16 @@ const styles = StyleSheet.create({
   fieldValue: { fontSize: 15, fontWeight: '600' },
   settingsCard: { marginTop: 0 },
   settingRow: { flexDirection: 'row', alignItems: 'center' },
-  logoutBtn: {
+  accountActions: { flexDirection: 'row', gap: 10, marginTop: 8 },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 8,
     padding: 14,
     borderRadius: 12,
     borderWidth: 1.5,
   },
-  logoutText: { fontSize: 15, fontWeight: '600' },
+  actionText: { fontSize: 15, fontWeight: '600' },
 });
