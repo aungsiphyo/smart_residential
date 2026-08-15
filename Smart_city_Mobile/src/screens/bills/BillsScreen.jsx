@@ -22,8 +22,22 @@ const SERVICE_ICONS = {
   Water: 'water-outline',
   Electricity: 'flash-outline',
   Maintenance: 'build-outline',
+  Installment: 'home-outline',
+  Service: 'construct-outline',
+  Other: 'receipt-outline',
   General: 'receipt-outline',
 };
+
+function getBillCategory(bill) {
+  if (bill?.category && bill.category !== 'Combined') return bill.category;
+  if (Number(bill?.installment_amount) > 0) return 'Apartment Installment';
+  if (Number(bill?.electricity_amount) > 0) return 'Electricity';
+  if (Number(bill?.water_amount) > 0) return 'Water';
+  if (Number(bill?.maintenance_amount) > 0) return 'Maintenance';
+  if (Number(bill?.service_amount) > 0) return 'Service Fee';
+  if (Number(bill?.other_amount) > 0) return 'Other';
+  return 'Service Bill';
+}
 
 function formatAmount(value) {
   return `${Number(value || 0).toLocaleString('en-US')} MMK`;
@@ -121,6 +135,7 @@ export default function BillsScreen({ navigation }) {
       item.room_id && typeof item.room_id === 'object' ? item.room_id : null;
     const resident = room?.resident_id;
     const service = item.type || item.service || 'General';
+    const category = getBillCategory(item);
     const statusTheme = getStatusTheme(item.status, theme);
 
     return (
@@ -149,6 +164,16 @@ export default function BillsScreen({ navigation }) {
               >
                 {item.title || `${service} bill`}
               </Text>
+              <View
+                style={[
+                  styles.categoryBadge,
+                  { backgroundColor: theme.primaryBg },
+                ]}
+              >
+                <Text style={[styles.categoryText, { color: theme.primary }]}>
+                  {category}
+                </Text>
+              </View>
               <View style={styles.metaRow}>
                 <Ionicons
                   name="calendar-outline"
@@ -234,14 +259,14 @@ export default function BillsScreen({ navigation }) {
         ListHeaderComponent={
           <View style={styles.header}>
             <Text style={[styles.heading, { color: theme.text }]}>
-              Service Bills
+              Category Bills
             </Text>
             <Text style={[styles.sub, { color: theme.subtext }]}>
               {isAdmin
-                ? 'All resident bills, grouped by room'
+                ? 'Room and fee category shown for every payment'
                 : user?.room_number
-                ? `Bills for Unit ${user.room_number}`
-                : 'Bills for your linked room'}
+                ? `Pay each Unit ${user.room_number} fee separately`
+                : 'Pay each fee separately for your linked room'}
             </Text>
             {!loading && bills.length > 0 ? (
               <View
@@ -375,7 +400,7 @@ export default function BillsScreen({ navigation }) {
                 style={[styles.detailSummary, { backgroundColor: theme.input }]}
               >
                 <Text style={[styles.detailLabel, { color: theme.subtext }]}>
-                  Total due
+                  Category amount due
                 </Text>
                 <Text style={[styles.detailTotal, { color: theme.text }]}>
                   {formatAmount(selectedBill?.amount)}
@@ -383,6 +408,9 @@ export default function BillsScreen({ navigation }) {
                 <Text style={[styles.sheetSubtitle, { color: theme.subtext }]}>
                   Due {formatDate(selectedBill?.due_date)} ·{' '}
                   {selectedBill?.status}
+                </Text>
+                <Text style={[styles.categorySummary, { color: theme.primary }]}>
+                  {getBillCategory(selectedBill)} · separately payable
                 </Text>
               </View>
 
@@ -413,7 +441,7 @@ export default function BillsScreen({ navigation }) {
               ) : null}
 
               <Text style={[styles.breakdownTitle, { color: theme.text }]}>
-                Monthly breakdown
+                This category bill
               </Text>
               {componentRows.length ? (
                 componentRows.map(([label, amount]) => (
@@ -458,6 +486,12 @@ export default function BillsScreen({ navigation }) {
                 <View
                   style={[styles.adminDetail, { backgroundColor: theme.input }]}
                 >
+                  <Text style={[styles.detailLabel, { color: theme.subtext }]}>
+                    Fee category
+                  </Text>
+                  <Text style={[styles.adminDetailText, { color: theme.text }]}>
+                    {getBillCategory(selectedBill)}
+                  </Text>
                   <Text style={[styles.detailLabel, { color: theme.subtext }]}>
                     Resident account
                   </Text>
@@ -526,7 +560,7 @@ export default function BillsScreen({ navigation }) {
                   <Text
                     style={[styles.payButtonText, { color: theme.primaryText }]}
                   >
-                    Pay Now
+                    Pay {getBillCategory(selectedBill)}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -548,6 +582,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sub: { fontSize: 14, marginBottom: 14 },
+  categoryBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 7,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginTop: 5,
+  },
+  categoryText: { fontSize: 10, fontWeight: '800' },
+  categorySummary: { fontSize: 12, fontWeight: '800', marginTop: 6 },
   summary: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 12 },
   summaryLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
   summaryValue: { fontSize: 20, fontWeight: '800' },

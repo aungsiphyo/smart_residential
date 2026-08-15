@@ -36,6 +36,10 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? 'Unknown date' : date.toLocaleString();
 }
 
+function paymentCategory(item) {
+  return item?.bill_id?.category || item?.bill_id?.type || 'Service Bill';
+}
+
 export default function AdminPaymentReviewScreen({ navigation }) {
   const { theme } = useTheme();
   const [items, setItems] = useState([]);
@@ -141,7 +145,9 @@ export default function AdminPaymentReviewScreen({ navigation }) {
   const confirmApproval = () => {
     Alert.alert(
       'Approve exact payment?',
-      `Confirm the screenshot shows ${formatAmount(
+      `Confirm Room ${
+        selected?.room_id?.room_name || 'Unknown'
+      } paid the ${paymentCategory(selected)} bill of ${formatAmount(
         selected?.expected_amount,
       )} sent to the Prime City KPay account. This atomically marks the bill Paid.`,
       [
@@ -171,7 +177,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
                 {item.user_id?.fullname || 'Resident'}
               </Text>
               <Text style={[styles.meta, { color: theme.subtext }]}>
-                {item.bill_id?.title || 'Service bill'} ·{' '}
+                {paymentCategory(item)} · {item.bill_id?.title || 'Service bill'} ·{' '}
                 {formatDate(item.submitted_at)}
               </Text>
             </View>
@@ -293,6 +299,9 @@ export default function AdminPaymentReviewScreen({ navigation }) {
                   Submitted: {formatAmount(selected?.submitted_amount)} · Room{' '}
                   {selected?.room_id?.room_name}
                 </Text>
+                <Text style={[styles.categoryLine, { color: theme.primary }]}>
+                  Fee: {paymentCategory(selected)}
+                </Text>
               </View>
               <View style={[styles.identityBox, { borderColor: theme.border }]}>
                 <Text style={[styles.detailHeading, { color: theme.text }]}>
@@ -312,7 +321,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
               </View>
               <View style={[styles.identityBox, { borderColor: theme.border }]}>
                 <Text style={[styles.detailHeading, { color: theme.text }]}>
-                  Bill details
+                  {paymentCategory(selected)} bill details
                 </Text>
                 {selectedBreakdown.map(([label, amount]) => (
                   <View key={label} style={styles.breakdownRow}>
@@ -539,6 +548,7 @@ const styles = StyleSheet.create({
   verifyLabel: { fontSize: 12, fontWeight: '700' },
   verifyAmount: { fontSize: 24, fontWeight: '900', marginTop: 4 },
   verifyMeta: { fontSize: 12, marginTop: 6 },
+  categoryLine: { fontSize: 13, fontWeight: '900', marginTop: 7 },
   note: { fontSize: 13, lineHeight: 19, marginTop: 10 },
   identityBox: { borderWidth: 1, borderRadius: 11, padding: 13, marginTop: 10 },
   detailHeading: { fontSize: 14, fontWeight: '800', marginBottom: 6 },

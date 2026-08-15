@@ -31,6 +31,10 @@ function formatAmount(value) {
   return `${Number(value || 0).toLocaleString('en-US')} MMK`;
 }
 
+function getBillCategory(bill) {
+  return bill?.category || bill?.type || 'Service Bill';
+}
+
 export default function BillPaymentScreen({ navigation, route }) {
   const { theme } = useTheme();
   const [bill, setBill] = useState(route.params?.bill || null);
@@ -152,6 +156,11 @@ export default function BillPaymentScreen({ navigation, route }) {
           <Text style={[styles.billTitle, { color: theme.subtext }]}>
             {bill.title}
           </Text>
+          <View style={[styles.categoryBox, { backgroundColor: theme.primaryBg }]}>
+            <Text style={[styles.categoryText, { color: theme.primary }]}>
+              Paying only: {getBillCategory(bill)}
+            </Text>
+          </View>
           {bill.service_cutoff_warning ? (
             <View style={[styles.notice, { backgroundColor: theme.warningBg }]}>
               <Ionicons
@@ -210,15 +219,15 @@ export default function BillPaymentScreen({ navigation, route }) {
             style={[styles.manualButton, { borderColor: theme.border }]}
             onPress={() =>
               Alert.alert(
-                'Open KPay manually',
-                `Open your verified KPay application and transfer ${formatAmount(
+                'How to pay with KPay',
+                `1. Copy phone number ${KPAY_PHONE}.\n2. Copy the exact amount ${formatAmount(
                   bill.amount,
-                )} to ${KPAY_PHONE}.`,
+                )}.\n3. Open your official KPay app manually.\n4. Transfer the exact amount to that number.\n5. Return to Prime City and upload the completed transfer screenshot.\n6. Wait for Admin approval before the bill becomes Paid.`,
               )
             }
           >
             <Text style={[styles.manualText, { color: theme.text }]}>
-              Manual KPay instructions
+              How to pay with KPay
             </Text>
           </TouchableOpacity>
         </Card>
@@ -228,8 +237,9 @@ export default function BillPaymentScreen({ navigation, route }) {
             Payment screenshot
           </Text>
           <Text style={[styles.help, { color: theme.subtext }]}>
-            Upload the completed transfer screenshot. Uploading does not mark
-            the bill Paid.
+            Upload the completed transfer screenshot for this{' '}
+            {getBillCategory(bill)} bill only. Uploading does not mark the bill
+            Paid.
           </Text>
           {screenshot ? (
             <Image
@@ -317,6 +327,14 @@ const styles = StyleSheet.create({
   },
   amount: { fontSize: 30, fontWeight: '900' },
   billTitle: { fontSize: 14, marginTop: 4 },
+  categoryBox: {
+    alignSelf: 'flex-start',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 10,
+  },
+  categoryText: { fontSize: 12, fontWeight: '900' },
   sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
   label: { fontSize: 12, fontWeight: '600' },
   phone: { fontSize: 25, fontWeight: '800', marginTop: 4, marginBottom: 14 },

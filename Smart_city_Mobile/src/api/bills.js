@@ -60,6 +60,18 @@ export async function fetchPaymentSubmissions(params = {}) {
   return res.data || [];
 }
 
+export async function fetchMyPaymentSubmissions(params = {}) {
+  const query = new URLSearchParams();
+  if (params.page) query.set('page', String(params.page));
+  if (params.limit) query.set('limit', String(params.limit));
+  const qs = query.toString();
+  const res = await apiRequest(
+    `/bill-payments/mine${qs ? `?${qs}` : ''}`,
+    { auth: true },
+  );
+  return res.data || [];
+}
+
 export async function reviewPaymentSubmission(id, payload) {
   return apiRequest(`/bill-payments/${id}/review`, {
     method: 'POST',
