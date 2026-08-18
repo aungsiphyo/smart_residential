@@ -1,14 +1,25 @@
 import { apiRequest } from './client';
 
-export const HELPER_CATEGORIES = [
-  'House Helper',
-  'Cleaning',
-  'Cooking',
-  'Laundry',
-  'Elder Care',
-  'Child Care',
-  'Maintenance',
+export const HELPER_CATALOG = [
+  { name: 'House Helper', amount_mmk: null, service_window: null },
+  {
+    name: 'Cleaning',
+    amount_mmk: 30000,
+    service_window: '9:00 AM - 12:00 PM',
+  },
+  { name: 'Cooking', amount_mmk: null, service_window: null },
+  { name: 'Laundry', amount_mmk: null, service_window: null },
+  { name: 'Elder Care', amount_mmk: null, service_window: null },
+  { name: 'Child Care', amount_mmk: null, service_window: null },
+  { name: 'Maintenance', amount_mmk: null, service_window: null },
 ];
+
+export const HELPER_CATEGORIES = HELPER_CATALOG.map(item => item.name);
+
+export async function fetchHelperCatalog() {
+  const res = await apiRequest('/helpers/catalog');
+  return Array.isArray(res) ? res : res.data || HELPER_CATALOG;
+}
 
 export async function fetchHelpers(params = {}) {
   const query = new URLSearchParams();

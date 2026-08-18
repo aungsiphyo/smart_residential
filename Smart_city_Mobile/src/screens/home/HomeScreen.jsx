@@ -50,6 +50,24 @@ const QUICK_ACTIONS = [
     screen: 'Notifications',
   },
   {
+    id: 'parking',
+    label: 'Parking Slots',
+    icon: 'car-sport-outline',
+    screen: 'Parking',
+  },
+  {
+    id: 'rfid-card',
+    label: 'My Wallet',
+    icon: 'wallet-outline',
+    screen: 'RfidCard',
+  },
+  {
+    id: 'playground',
+    label: 'Playground',
+    icon: 'football-outline',
+    screen: 'Playground',
+  },
+  {
     id: 'news',
     label: 'Announcements',
     icon: 'megaphone-outline',
@@ -378,12 +396,17 @@ export default function HomeScreen({ navigation }) {
             icon: 'send-outline',
             screen: 'AdminNotifications',
           },
-          ...QUICK_ACTIONS.filter(action => action.id !== 'history').map(
-            action =>
-              action.id === 'helpers'
-                ? { ...action, label: 'Helper Requests' }
-                : action,
-          ),
+          ...QUICK_ACTIONS.filter(
+            action => action.id !== 'history' && !action.residentOnly,
+          ).map(action => {
+            if (action.id === 'helpers') {
+              return { ...action, label: 'Helper Requests' };
+            }
+            if (action.id === 'rfid-card') {
+              return { ...action, label: 'Wallet & Shops' };
+            }
+            return action;
+          }),
           {
             id: 'resident-reports',
             label: 'Resident Reports',
@@ -514,9 +537,7 @@ export default function HomeScreen({ navigation }) {
                   color={theme.danger}
                 />
                 <View style={styles.overdueCopy}>
-                  <Text
-                    style={[styles.overdueTitle, { color: theme.danger }]}
-                  >
+                  <Text style={[styles.overdueTitle, { color: theme.danger }]}>
                     Payment overdue
                   </Text>
                   <Text
@@ -574,46 +595,46 @@ export default function HomeScreen({ navigation }) {
             </View>
 
             {!['Admin', 'Staff'].includes(user?.role) ? (
-            <Card style={styles.reportCard}>
-              <View style={styles.reportRow}>
-                <View
-                  style={[
-                    styles.reportIcon,
-                    { backgroundColor: theme.warningBg },
-                  ]}
+              <Card style={styles.reportCard}>
+                <View style={styles.reportRow}>
+                  <View
+                    style={[
+                      styles.reportIcon,
+                      { backgroundColor: theme.warningBg },
+                    ]}
+                  >
+                    <Ionicons
+                      name="document-text-outline"
+                      size={22}
+                      color={theme.warning}
+                    />
+                  </View>
+                  <View style={styles.reportCopy}>
+                    <Text style={[styles.reportTitle, { color: theme.text }]}>
+                      Submit a report
+                    </Text>
+                    <Text style={[styles.reportSub, { color: theme.subtext }]}>
+                      Maintenance, security, or community issues
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={[styles.reportBtn, { backgroundColor: theme.primary }]}
+                  onPress={() => navigateTo('ReportIssue')}
+                  activeOpacity={0.85}
                 >
                   <Ionicons
-                    name="document-text-outline"
-                    size={22}
-                    color={theme.warning}
+                    name="send-outline"
+                    size={17}
+                    color={theme.primaryText}
                   />
-                </View>
-                <View style={styles.reportCopy}>
-                  <Text style={[styles.reportTitle, { color: theme.text }]}>
-                    Submit a report
+                  <Text
+                    style={[styles.reportBtnText, { color: theme.primaryText }]}
+                  >
+                    Report now
                   </Text>
-                  <Text style={[styles.reportSub, { color: theme.subtext }]}>
-                    Maintenance, security, or community issues
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={[styles.reportBtn, { backgroundColor: theme.primary }]}
-                onPress={() => navigateTo('ReportIssue')}
-                activeOpacity={0.85}
-              >
-                <Ionicons
-                  name="send-outline"
-                  size={17}
-                  color={theme.primaryText}
-                />
-                <Text
-                  style={[styles.reportBtnText, { color: theme.primaryText }]}
-                >
-                  Report now
-                </Text>
-              </TouchableOpacity>
-            </Card>
+                </TouchableOpacity>
+              </Card>
             ) : null}
 
             <Text style={[styles.sectionTitle, { color: theme.text }]}>

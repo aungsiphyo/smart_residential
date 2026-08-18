@@ -11,8 +11,11 @@ This repository contains the Android and iOS client. The Node.js, Express, Mongo
 - Access-token refresh and automatic session expiry handling
 - Resident dashboard with advertisements, announcements, and quick actions
 - Role-scoped billing: residents see only their room's bills; Admin and Staff can see resident bills
-- Visitor pre-registration, badge response, and resident visitor history
-- Available-helper directory, helper requests, and resident helper history
+- Visitor pre-registration with a signed one-time QR gate pass, the preserved walk-in form flow, and resident visitor history
+- Quick Action parking availability with separate Resident and Visitor slot cards
+- Available-helper directory, category pricing, helper requests, and resident helper history
+- Resident My Wallet with RFID identity, approved Prime City shop payments, private receipts, and Admin merchant settlement ledger
+- Resident-child playground offers, registration, RFID-wallet payment, and Admin booking review
 - Maintenance, security, and general issue reports with resident status history
 - Security, medical, and fire SOS alerts
 - Database-backed notification inbox with per-user unread counts and mark-as-read support
@@ -58,7 +61,8 @@ The Version 2 update preserves the existing navigation and resident features whi
 
 ### Announcement lifecycle
 
-- Announcements are Admin/Staff managed and require authentication to create or read.
+- Announcements are Admin/Staff managed; authenticated reads apply resident-specific audience filtering.
+- Backward compatibility keeps the installed Version 1 client working: its tokenless read request can see only `Active` announcements addressed to `All Residents`. Authenticated Version 2 clients retain room/building/floor audience filtering, and all create, complete, archive, and delete operations remain Admin/Staff protected.
 - Audience scope supports all residents, one building, one floor, or one room.
 - Maintenance notices move through `Active`, `Completed`, and `Archived` states instead of remaining visible forever.
 - Completing maintenance removes it from resident active lists and notifies affected residents once.
@@ -76,6 +80,38 @@ The Version 2 update preserves the existing navigation and resident features whi
 - Admin Helper Request cards provide a one-time `Submit & notify resident` action and show `Submitted` after acknowledgement.
 - Multiple devices per user are supported, and notification socket authentication is refreshed on reconnect.
 
+### Parking availability
+
+- Home Quick Actions includes a `Parking Slots` card for Resident and Admin/Staff accounts.
+- The Parking screen shows Resident Parking and Visitor Parking separately with available, occupied, maintenance, usable, and total slot counts from the backend.
+- Parking changes emitted by the existing MQTT/backend flow update the screen through authenticated Socket.IO; pull-to-refresh and a 30-second fallback refresh remain available when realtime connectivity is interrupted.
+- The mobile screen is read-only and does not expose parking setup, reset, or occupancy mutation controls.
+
+### Helpers, RFID wallet, and playground
+
+- Cleaning requests publish the fixed `30,000 MMK` price and `9:00 AM - 12:00 PM` service window. The backend saves that quote with the request so Resident history and Admin review display the same price.
+- Helper categories without a supplied business price remain `Admin Confirmation`; the application does not invent fees for them.
+- Resident Quick Actions includes `My Wallet`. The screen masks the RFID UID, shows card status and wallet balance, and lists only the authenticated resident's transactions and shop receipts.
+- Admin/Staff Quick Actions includes `Wallet & Shops`, with resident credit, approved merchant creation, merchant balances, recent payment references, and externally settled amount recording. Only residents with an active RFID card can receive credit or make a wallet purchase.
+- Residents can pay an exact whole-MMK amount only to an active Admin-approved Prime City merchant. Each purchase atomically debits the resident wallet, credits the merchant ledger, creates a unique receipt reference, and sends a private receipt notification.
+- Wallet payment retries use an idempotency key, preventing the same request from charging twice. Residents cannot create merchants, settle merchant balances, view another resident's wallet, or access the Admin merchant ledger.
+- Merchant settlements require Admin/Staff authorization and a real external bank/KPay reference. The ledger records settlement; it does not claim to move external bank funds automatically.
+- RFID wallet credits can be recorded only by authenticated Admin/Staff. Balance changes, shop purchases, merchant settlements, and playground payments use immutable transaction records and Admin audit entries.
+- Resident Quick Actions includes `Playground`, where a resident can register a child aged 1–17 for a future Morning, Afternoon, or Evening session and view their own registrations.
+- Admin/Staff can review all playground registrations from the same Quick Action and set Confirmed, Waitlisted, Completed, or Cancelled. Status changes notify the resident.
+- Playground pricing and the resident-child discount are environment-configured. If no official values are configured, registrations remain price-pending instead of displaying an invented fee.
+- A configured paid playground session can be paid from the resident's active RFID wallet. The debit and registration are atomic; an Admin cancellation atomically creates a wallet refund transaction.
+
+### Visitor gate QR flows
+
+- The existing walk-in flow remains unchanged: the ESP32-CAM scans the configured static visitor badge, `/api/qr-scan` emits the existing `unlock` event, and the reception display shows the existing registration-form QR.
+- An authenticated resident pre-registration now creates a visit-date-bound, one-time QR pass. The resident can display, save, or share it and can reopen an active pass from `My History`.
+- Sharing includes a bearer-link web pass at `/visitor-pass#<signed-token>` so an Android visitor can open the QR without installing Prime City. The URL fragment is not sent in the initial page request; the page exchanges it for a minimal QR preview and never receives private visitor contact/identity fields.
+- A pre-registration QR contains only a signed opaque token. It does not embed the visitor phone, email, NRIC, resident profile, or room data.
+- When the ESP32-CAM sends that token to `/api/qr-scan`, the backend validates its HMAC signature, activation time, expiry, database record, and unused status. The pass is atomically marked `Used`, preventing a second gate entry with the same QR.
+- A valid pre-registration scan emits `pre_registered_visitor` to the existing `/display` SSE page. The display shows only the approved visitor name, badge, host, room, and purpose for ten seconds, then returns to scanner mode.
+- Public visitors without a pre-registration continue to scan the existing form QR and complete the original web form. No original visitor route or screen was removed.
+
 ### Profile settings
 
 - A Settings button is displayed beside Sign out on the Profile screen.
@@ -89,6 +125,7 @@ The Version 2 update preserves the existing navigation and resident features whi
 - AI bill answers use only the authenticated resident's assigned room. Admin-only aggregate tools remain protected by role checks.
 - Private tools for bills, visitor history, helper history, reports, SOS, and RFID activity are scoped to the signed-in user.
 - The assistant can answer current resident-population, room-availability, date/time, configured Admin contact, and live weather questions through backend tools.
+- Myanmar questions such as `Prime City မှာ အခန်း ဘယ်နှခန်းရှိလဲ` use the live room inventory tool and return total, occupied, available, and maintenance counts; no duplicate AI room-data implementation was added.
 - Admin contact requests return `09455507081` and `09965139303`.
 - Chat conversations are persisted per user, restored in paginated batches across app launches, and retained until that user deletes them.
 - Relevant memory retrieval is restricted to the same user. One resident's chat, bill, or activity data is never included in another resident's context.
@@ -116,6 +153,8 @@ The Version 2 update preserves the existing navigation and resident features whi
 - RAG currently uses MongoDB-backed metadata and relevant-chunk retrieval. A separate vector database or embedding provider is not required by this version and is not configured.
 - Full account-field editing remains intentionally unavailable to residents; the photo-only Settings screen is active.
 - Never place Firebase Admin credentials, database credentials, signing keys, or other server secrets in the mobile application.
+- Set `PLAYGROUND_BASE_FEE_MMK` and `PLAYGROUND_RESIDENT_DISCOUNT_PERCENT` on the EC2 backend to publish the official playground rate and resident-child discount. Restart PM2 only after validating the values; neither value belongs in the mobile bundle.
+- Set a random server-only `VISITOR_QR_SIGNING_SECRET` of at least 32 characters on EC2 before using pre-registration passes. Keep it stable across PM2 restarts, never place it in the app/QR payload/repository, and rotate it only when intentionally invalidating all outstanding passes. If omitted, the backend uses the existing `JWT_SECRET` only when it is at least 32 characters.
 
 ## Tech Stack
 
@@ -236,10 +275,13 @@ When using a backend on your development machine:
 | Announcements and ads | `/announcements`, `/advertisements` |
 | Bills | `/bills`, `/bills/:id`, `/bills/admin/rooms`, `/bills/bulk` |
 | Bill payments | `/bill-payments`, `/bill-payments/:billId/submit`, `/bill-payments/:id/proof`, `/bill-payments/:id/review` |
+| Parking availability | `/parking`, `/parking/visitor`, `/parking/resident` |
 | Notifications | `/notifications`, `/notifications/unread-count`, `/notifications/:id/read`, `/notifications/mark-all-read`, `/notifications/device-token` |
 | Admin notifications | `/notifications/residents`, `/notifications/send`, `/notifications/:id/submit` |
-| Helpers | `/helpers`, `/helper-requests` |
-| Visitors | `/visitors`, `/visitors/register` |
+| Helpers | `/helpers`, `/helpers/catalog`, `/helper-requests` |
+| My Wallet and shops | `/rfid-wallet/me`, `/rfid-wallet/adjust`, `/rfid-wallet/merchants`, `/rfid-wallet/pay`, `/rfid-wallet/merchants/:id/ledger`, `/rfid-wallet/merchants/:id/settle` |
+| Playground | `/playground/config`, `/playground/registrations`, `/playground/registrations/:id/status` |
+| Visitors | `/visitors`, `/visitors/register`, `/visitors/:id/qr`, `/api/qr-scan` |
 | Reports and SOS | `/reports`, `/reports/mine`, `/reports/:id/submit`, `/sos` |
 | AI assistant | `/ai/chat`, `/ai/voice`, `/ai/history`, `/ai/history/sessions`, `/ai/history/:conversationId`, `/ai/feedback` |
 | AI feedback review | `/ai/feedback/admin`, `/ai/feedback/:id/review` |
@@ -313,6 +355,8 @@ npm run migrate:v2:apply
 ```
 
 The migration adds lifecycle defaults to legacy announcements, zero-value breakdown fields to legacy bills, the seven-day payment warning, and missing room-finance values. Existing non-zero room prices and installment progress are preserved. It also creates the billing/payment/room indexes and does not delete bills, announcements, users, or rooms.
+
+The My Wallet/shop and visitor-pass additions are additive and do not require rewriting existing records. On first use, MongoDB creates `primecitymerchants` and `merchantsettlements`, and the wallet transaction collection adds merchant/reference/idempotency fields and indexes. Existing visitor records remain `WalkIn` by default; new authenticated pre-registrations add QR status, validity, and one-time scan fields. Verify index creation in production if Mongoose automatic index creation is disabled.
 
 ### August 2026 billing initialization
 
@@ -391,7 +435,7 @@ Verification performed for the Version 2 update:
 - Android production JavaScript bundle: generated successfully with all assets.
 - iOS was intentionally not retested in this Android-first phase.
 - Android cold launch: verified twice after force-stop with no fatal runtime or application-registration error.
-- Backend privacy, intent, reviewer, room-scope, visitor-scope, category-billing, exact-amount, private-proof, payment-state, room-finance, audible-push payload, and role-escalation tests: 30 of 30 passed.
+- Backend privacy, intent, reviewer, room-scope, visitor-scope, category-billing, exact-amount, private-proof, payment-state, room-finance, audible-push payload, role-escalation, wallet/merchant authorization, and signed visitor QR tests: 41 of 41 passed.
 - MongoDB GridFS proof round-trip in an isolated test database: upload, private metadata, byte-identical download, and cleanup passed.
 - Isolated-database billing E2E: monthly total creation, resident own-room read, exact-amount screenshot submit, Admin queue, owner/Admin private-proof access, Under Review, atomic Paid approval, notification creation, and Paid readback passed.
 - Billing negative/security E2E: cross-room bill read returned `404`, another resident's private proof returned `403`, double approval returned `409`, and resubmission after Paid returned `409`.
@@ -400,6 +444,8 @@ Verification performed for the Version 2 update:
 - The isolated test database and temporary private payment-proof directory were removed immediately after verification.
 - Remote MongoDB V2 migration dry-run: connected successfully and reported 8 legacy announcements and 3 legacy bills; no production data was changed by the dry-run.
 - EC2 one-resident notification integration: API `201`, DB persisted, authenticated realtime event received, FCM success count `1`, failure count `0`; physical-device foreground/background/closed display remains a manual lifecycle check.
+- Android emulator smoke test: Home rendered, the resident `My Wallet` screen rendered, and the updated Pre-register Visitor form rendered with the visit date. The currently deployed EC2 backend returned the expected `404` for the new wallet endpoint because this local backend phase has not yet been deployed.
+- The shop-payment transaction and ESP32/display pre-registration scan have not been declared end-to-end complete: deploy the matching backend, configure the visitor signing secret, create an approved test merchant, assign/top up a test RFID wallet, and run the physical gate/device checks first.
 
 The privacy tests explicitly verify that a resident cannot override the authenticated room/user scope when asking the AI about bills or visitor history. Add focused regression tests whenever authorization, data scope, notification delivery, or AI tools change.
 
