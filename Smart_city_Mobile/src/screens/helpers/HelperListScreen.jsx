@@ -240,6 +240,16 @@ export default function HelperListScreen({ navigation }) {
               Resident phone: {resident.phone}
             </Text>
           ) : null}
+          {item.quoted_price_mmk != null ? (
+            <Text style={[styles.requestDetail, { color: theme.primary }]}>
+              Price: {Number(item.quoted_price_mmk).toLocaleString('en-US')} MMK
+              {item.service_window ? ` · ${item.service_window}` : ''}
+            </Text>
+          ) : (
+            <Text style={[styles.requestDetail, { color: theme.subtext }]}>
+              Price: Admin confirmation required
+            </Text>
+          )}
           {item.note ? (
             <Text style={[styles.requestNote, { color: theme.text }]}>
               {item.note}

@@ -33,6 +33,11 @@ export async function fetchVisitorHistory(params = {}) {
   };
 }
 
+export async function fetchVisitorPass(visitorId) {
+  const res = await apiRequest(`/visitors/${visitorId}/qr`, { auth: true });
+  return res.data;
+}
+
 export function splitFullName(fullName) {
   const trimmed = (fullName || '').trim();
   if (!trimmed) return { firstName: '', lastName: '' };

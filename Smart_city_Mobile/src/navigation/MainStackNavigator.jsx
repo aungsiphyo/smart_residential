@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import PreRegisterVisitorScreen from '../screens/visitors/PreRegisterVisitorScreen';
+import VisitorPassScreen from '../screens/visitors/VisitorPassScreen';
 import HelperRequestScreen from '../screens/helpers/HelperRequestScreen';
 import HelperListScreen from '../screens/helpers/HelperListScreen';
 import AdminNotificationScreen from '../screens/admin/AdminNotificationScreen';
@@ -13,6 +14,9 @@ import ProfileSettingsScreen from '../screens/profile/ProfileSettingsScreen';
 import BillPaymentScreen from '../screens/bills/BillPaymentScreen';
 import CreateMonthlyBillScreen from '../screens/bills/CreateMonthlyBillScreen';
 import AdminPaymentReviewScreen from '../screens/bills/AdminPaymentReviewScreen';
+import ParkingScreen from '../screens/parking/ParkingScreen';
+import RfidCardScreen from '../screens/rfid/RfidCardScreen';
+import PlaygroundScreen from '../screens/playground/PlaygroundScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -22,6 +26,7 @@ export default function MainStackNavigator() {
       <Stack.Screen name="Tabs" component={BottomTabNavigator} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="PreRegister" component={PreRegisterVisitorScreen} />
+      <Stack.Screen name="VisitorPass" component={VisitorPassScreen} />
       <Stack.Screen name="Helpers" component={HelperListScreen} />
       <Stack.Screen name="HelperRequest" component={HelperRequestScreen} />
       <Stack.Screen
@@ -44,6 +49,9 @@ export default function MainStackNavigator() {
         name="AdminPaymentReview"
         component={AdminPaymentReviewScreen}
       />
+      <Stack.Screen name="Parking" component={ParkingScreen} />
+      <Stack.Screen name="RfidCard" component={RfidCardScreen} />
+      <Stack.Screen name="Playground" component={PlaygroundScreen} />
     </Stack.Navigator>
   );
 }

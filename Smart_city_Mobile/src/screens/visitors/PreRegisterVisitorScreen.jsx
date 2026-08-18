@@ -13,14 +13,34 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { registerVisitor, splitFullName, VISITOR_PURPOSES } from '../../api/visitors';
+import {
+  registerVisitor,
+  splitFullName,
+  VISITOR_PURPOSES,
+} from '../../api/visitors';
+
+function localDateString() {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+}
 
 function InputField({ label, icon, theme, ...props }) {
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.subtext }]}>{label}</Text>
-      <View style={[styles.inputWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
-        <Ionicons name={icon} size={18} color={theme.inactive} style={styles.inputIcon} />
+      <View
+        style={[
+          styles.inputWrap,
+          { backgroundColor: theme.input, borderColor: theme.border },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={18}
+          color={theme.inactive}
+          style={styles.inputIcon}
+        />
         <TextInput
           style={[styles.input, { color: theme.text }]}
           placeholderTextColor={theme.inactive}
@@ -41,6 +61,7 @@ export default function PreRegisterVisitorScreen({ navigation }) {
   const [host, setHost] = useState(user?.fullname || '');
   const [purpose, setPurpose] = useState('General');
   const [purposeDetail, setPurposeDetail] = useState('');
+  const [visitDate, setVisitDate] = useState(localDateString());
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -48,7 +69,10 @@ export default function PreRegisterVisitorScreen({ navigation }) {
     const { firstName, lastName } = splitFullName(name);
 
     if (!firstName || !email.trim() || !phone.trim() || !host.trim()) {
-      Alert.alert('Missing fields', 'Please fill in visitor name, email, phone, and host.');
+      Alert.alert(
+        'Missing fields',
+        'Please fill in visitor name, email, phone, and host.',
+      );
       return;
     }
 
@@ -58,7 +82,15 @@ export default function PreRegisterVisitorScreen({ navigation }) {
     }
 
     if (!agreedToTerms) {
-      Alert.alert('Terms required', 'You must agree to the visitor terms before registering.');
+      Alert.alert(
+        'Terms required',
+        'You must agree to the visitor terms before registering.',
+      );
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(visitDate)) {
+      Alert.alert('Invalid visit date', 'Use YYYY-MM-DD format.');
       return;
     }
 
@@ -72,16 +104,23 @@ export default function PreRegisterVisitorScreen({ navigation }) {
         hostName: host.trim(),
         purpose,
         purposeDetail: purposeDetail.trim(),
+        visitDate,
         agreedToTerms: true,
       });
-
-      Alert.alert(
-        'Visitor Registered',
-        `Badge: ${res.data?.badgeNumber || 'N/A'}\n${res.message || 'Your visitor has been pre-approved.'}`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
-      );
+      if (res.data?.visitor_pass?.qr_image_data_url) {
+        navigation.replace('VisitorPass', { initialPass: res.data });
+      } else {
+        Alert.alert(
+          'Visitor registered',
+          `Badge: ${res.data?.badgeNumber || 'N/A'}\nThe current server registered the visitor using the existing check-in flow. Deploy the Version 2 backend before secure QR passes become available.`,
+          [{ text: 'OK', onPress: () => navigation.goBack() }],
+        );
+      }
     } catch (err) {
-      Alert.alert('Registration failed', err.message || 'Unable to register visitor.');
+      Alert.alert(
+        'Registration failed',
+        err.message || 'Unable to register visitor.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -92,12 +131,28 @@ export default function PreRegisterVisitorScreen({ navigation }) {
       navigation={navigation}
       topBarVariant="stack"
       title="Pre-register Visitor"
-      showBottomNav>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-        <View style={[styles.infoBanner, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '33' }]}>
-          <Ionicons name="information-circle-outline" size={20} color={theme.primary} />
+      showBottomNav
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View
+          style={[
+            styles.infoBanner,
+            {
+              backgroundColor: theme.primary + '15',
+              borderColor: theme.primary + '33',
+            },
+          ]}
+        >
+          <Ionicons
+            name="information-circle-outline"
+            size={20}
+            color={theme.primary}
+          />
           <Text style={[styles.infoText, { color: theme.subtext }]}>
-            Pre-register visitors for faster lobby check-in
+            Pre-register a visitor to create a secure, one-time gate QR pass
           </Text>
         </View>
 
@@ -136,11 +191,27 @@ export default function PreRegisterVisitorScreen({ navigation }) {
           value={host}
           onChangeText={setHost}
         />
+        <InputField
+          theme={theme}
+          label="Visit date"
+          icon="calendar-outline"
+          placeholder="YYYY-MM-DD"
+          value={visitDate}
+          onChangeText={setVisitDate}
+          keyboardType="number-pad"
+          maxLength={10}
+        />
 
         <View style={styles.field}>
-          <Text style={[styles.label, { color: theme.subtext }]}>Purpose of visit</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.purposeRow}>
-            {VISITOR_PURPOSES.map((item) => {
+          <Text style={[styles.label, { color: theme.subtext }]}>
+            Purpose of visit
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.purposeRow}
+          >
+            {VISITOR_PURPOSES.map(item => {
               const selected = purpose === item;
               return (
                 <TouchableOpacity
@@ -152,12 +223,14 @@ export default function PreRegisterVisitorScreen({ navigation }) {
                       borderColor: selected ? theme.primary : theme.border,
                     },
                   ]}
-                  onPress={() => setPurpose(item)}>
+                  onPress={() => setPurpose(item)}
+                >
                   <Text
                     style={[
                       styles.purposeChipText,
                       { color: selected ? theme.primaryText : theme.text },
-                    ]}>
+                    ]}
+                  >
                     {item}
                   </Text>
                 </TouchableOpacity>
@@ -178,7 +251,8 @@ export default function PreRegisterVisitorScreen({ navigation }) {
         <TouchableOpacity
           style={styles.termsRow}
           onPress={() => setAgreedToTerms(!agreedToTerms)}
-          activeOpacity={0.7}>
+          activeOpacity={0.7}
+        >
           <Ionicons
             name={agreedToTerms ? 'checkbox' : 'square-outline'}
             size={22}
@@ -197,13 +271,20 @@ export default function PreRegisterVisitorScreen({ navigation }) {
           ]}
           onPress={onSubmit}
           disabled={submitting}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+        >
           {submitting ? (
             <ActivityIndicator color={theme.primaryText} />
           ) : (
             <>
-              <Ionicons name="checkmark-circle-outline" size={20} color={theme.primaryText} />
-              <Text style={[styles.buttonText, { color: theme.primaryText }]}>Submit registration</Text>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={20}
+                color={theme.primaryText}
+              />
+              <Text style={[styles.buttonText, { color: theme.primaryText }]}>
+                Submit registration
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -244,7 +325,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   purposeChipText: { fontSize: 13, fontWeight: '600' },
-  termsRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
   termsText: { flex: 1, fontSize: 13, lineHeight: 18 },
   button: {
     flexDirection: 'row',

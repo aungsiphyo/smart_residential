@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,11 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
 import { useTheme } from '../../context/ThemeContext';
-import { createHelperRequest, HELPER_CATEGORIES } from '../../api/helpers';
+import {
+  createHelperRequest,
+  fetchHelperCatalog,
+  HELPER_CATALOG,
+} from '../../api/helpers';
 
 const GENDER_OPTIONS = ['No Preference', 'Female', 'Male'];
 
@@ -26,6 +30,7 @@ export default function HelperRequestScreen({ navigation, route }) {
       : 'House Helper';
 
   const [category, setCategory] = useState(initialCategory);
+  const [catalog, setCatalog] = useState(HELPER_CATALOG);
   const [gender, setGender] = useState(helper?.gender || 'No Preference');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -34,6 +39,18 @@ export default function HelperRequestScreen({ navigation, route }) {
     if (!helper) return 'No specific helper selected';
     return [helper.gender, helper.phone].filter(Boolean).join(' · ');
   }, [helper]);
+  const selectedPricing = useMemo(
+    () => catalog.find(item => item.name === category),
+    [catalog, category],
+  );
+
+  useEffect(() => {
+    fetchHelperCatalog()
+      .then(items => {
+        if (Array.isArray(items) && items.length) setCatalog(items);
+      })
+      .catch(() => null);
+  }, []);
 
   const onSubmit = async () => {
     setSubmitting(true);
@@ -45,12 +62,17 @@ export default function HelperRequestScreen({ navigation, route }) {
         note: note.trim(),
       });
 
-      Alert.alert('Request sent', 'Admin staff will review your helper request.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      Alert.alert(
+        'Request sent',
+        'Admin staff will review your helper request.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
+      );
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Request failed', err.message || 'Unable to request helper.');
+        Alert.alert(
+          'Request failed',
+          err.message || 'Unable to request helper.',
+        );
       }
     } finally {
       setSubmitting(false);
@@ -62,11 +84,20 @@ export default function HelperRequestScreen({ navigation, route }) {
       navigation={navigation}
       topBarVariant="stack"
       title="Helper Request"
-      showBottomNav>
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      showBottomNav
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
         <Card>
           <View style={styles.selectedRow}>
-            <View style={[styles.selectedIcon, { backgroundColor: theme.primary + '18' }]}>
+            <View
+              style={[
+                styles.selectedIcon,
+                { backgroundColor: theme.primary + '18' },
+              ]}
+            >
               <Ionicons name="people-outline" size={22} color={theme.primary} />
             </View>
             <View style={styles.selectedCopy}>
@@ -82,11 +113,11 @@ export default function HelperRequestScreen({ navigation, route }) {
 
         <Text style={[styles.label, { color: theme.subtext }]}>Category</Text>
         <View style={styles.chipGrid}>
-          {HELPER_CATEGORIES.map((item) => {
-            const selected = category === item;
+          {catalog.map(item => {
+            const selected = category === item.name;
             return (
               <TouchableOpacity
-                key={item}
+                key={item.name}
                 style={[
                   styles.chip,
                   {
@@ -94,22 +125,54 @@ export default function HelperRequestScreen({ navigation, route }) {
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
-                onPress={() => setCategory(item)}>
+                onPress={() => setCategory(item.name)}
+              >
                 <Text
                   style={[
                     styles.chipText,
                     { color: selected ? theme.primaryText : theme.text },
-                  ]}>
-                  {item}
+                  ]}
+                >
+                  {item.name}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={[styles.label, { color: theme.subtext }]}>Preferred gender</Text>
+        <Card style={styles.pricingCard}>
+          <View style={styles.pricingHeader}>
+            <Ionicons name="cash-outline" size={20} color={theme.primary} />
+            <Text style={[styles.pricingTitle, { color: theme.text }]}>
+              Service price
+            </Text>
+          </View>
+          {selectedPricing?.amount_mmk != null ? (
+            <>
+              <Text style={[styles.pricingAmount, { color: theme.primary }]}>
+                {Number(selectedPricing.amount_mmk).toLocaleString('en-US')} MMK
+              </Text>
+              {selectedPricing.service_window ? (
+                <Text style={[styles.pricingWindow, { color: theme.subtext }]}>
+                  {selectedPricing.service_window}
+                </Text>
+              ) : null}
+              <Text style={[styles.pricingNote, { color: theme.subtext }]}>
+                This price is saved with your request for Admin review.
+              </Text>
+            </>
+          ) : (
+            <Text style={[styles.pricingNote, { color: theme.subtext }]}>
+              Admin will confirm the price and schedule for this category.
+            </Text>
+          )}
+        </Card>
+
+        <Text style={[styles.label, { color: theme.subtext }]}>
+          Preferred gender
+        </Text>
         <View style={styles.genderRow}>
-          {GENDER_OPTIONS.map((item) => {
+          {GENDER_OPTIONS.map(item => {
             const selected = gender === item;
             return (
               <TouchableOpacity
@@ -117,24 +180,36 @@ export default function HelperRequestScreen({ navigation, route }) {
                 style={[
                   styles.genderChip,
                   {
-                    backgroundColor: selected ? theme.primary + '20' : theme.card,
+                    backgroundColor: selected
+                      ? theme.primary + '20'
+                      : theme.card,
                     borderColor: selected ? theme.primary : theme.border,
                   },
                 ]}
-                onPress={() => setGender(item)}>
+                onPress={() => setGender(item)}
+              >
                 <Ionicons
-                  name={selected ? 'radio-button-on' : 'radio-button-off-outline'}
+                  name={
+                    selected ? 'radio-button-on' : 'radio-button-off-outline'
+                  }
                   size={16}
                   color={selected ? theme.primary : theme.inactive}
                 />
-                <Text style={[styles.genderText, { color: theme.text }]}>{item}</Text>
+                <Text style={[styles.genderText, { color: theme.text }]}>
+                  {item}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
         <Text style={[styles.label, { color: theme.subtext }]}>Notes</Text>
-        <View style={[styles.textAreaWrap, { backgroundColor: theme.input, borderColor: theme.border }]}>
+        <View
+          style={[
+            styles.textAreaWrap,
+            { backgroundColor: theme.input, borderColor: theme.border },
+          ]}
+        >
           <TextInput
             style={[styles.textArea, { color: theme.text }]}
             placeholder="Schedule, tasks, access notes..."
@@ -154,13 +229,20 @@ export default function HelperRequestScreen({ navigation, route }) {
           ]}
           onPress={onSubmit}
           disabled={submitting}
-          activeOpacity={0.85}>
+          activeOpacity={0.85}
+        >
           {submitting ? (
             <ActivityIndicator color={theme.primaryText} />
           ) : (
             <>
-              <Ionicons name="send-outline" size={18} color={theme.primaryText} />
-              <Text style={[styles.submitText, { color: theme.primaryText }]}>Send request</Text>
+              <Ionicons
+                name="send-outline"
+                size={18}
+                color={theme.primaryText}
+              />
+              <Text style={[styles.submitText, { color: theme.primaryText }]}>
+                Send request
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -197,6 +279,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   chipText: { fontSize: 13, fontWeight: '700' },
+  pricingCard: { marginBottom: 18 },
+  pricingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pricingTitle: { fontSize: 15, fontWeight: '700' },
+  pricingAmount: { fontSize: 24, fontWeight: '800', marginTop: 10 },
+  pricingWindow: { fontSize: 14, fontWeight: '600', marginTop: 3 },
+  pricingNote: { fontSize: 13, lineHeight: 19, marginTop: 7 },
   genderRow: { gap: 8, marginBottom: 18 },
   genderChip: {
     flexDirection: 'row',

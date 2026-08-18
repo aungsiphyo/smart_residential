@@ -1,0 +1,1209 @@
+import React, { useCallback, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import ScreenContainer from '../../components/ScreenContainer';
+import Card from '../../components/Card';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import {
+  createPrimeCityMerchant,
+  creditRfidWallet,
+  fetchMyRfidWallet,
+  fetchPrimeCityMerchantLedger,
+  fetchPrimeCityMerchants,
+  payPrimeCityMerchant,
+  settlePrimeCityMerchant,
+} from '../../api/rfidWallet';
+import { fetchResidentsForNotifications } from '../../api/adminNotifications';
+
+function formatAmount(value) {
+  return `${Number(value || 0).toLocaleString('en-US')} MMK`;
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString();
+}
+
+function ResidentRfidCardScreen({ navigation }) {
+  const { theme } = useTheme();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [merchants, setMerchants] = useState([]);
+  const [selectedMerchant, setSelectedMerchant] = useState(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
+  const [paying, setPaying] = useState(false);
+
+  const loadWallet = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+    try {
+      const [walletData, merchantData] = await Promise.all([
+        fetchMyRfidWallet(),
+        fetchPrimeCityMerchants(),
+      ]);
+      setData(walletData);
+      setMerchants(merchantData);
+    } catch (err) {
+      if (!err.sessionExpired)
+        setError(err.message || 'Unable to load RFID card');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadWallet();
+    }, [loadWallet]),
+  );
+
+  const card = data?.card;
+  const wallet = data?.wallet;
+  const activeCard = card?.assigned && card?.status === 'active';
+
+  const submitPayment = () => {
+    const value = Number(paymentAmount);
+    if (!selectedMerchant?._id) {
+      Alert.alert(
+        'Choose a shop',
+        'Select the Prime City shop you are paying.',
+      );
+      return;
+    }
+    if (!activeCard || wallet?.status !== 'Active') {
+      Alert.alert(
+        'Wallet unavailable',
+        'An active RFID card and wallet are required.',
+      );
+      return;
+    }
+    if (!Number.isInteger(value) || value <= 0) {
+      Alert.alert('Invalid amount', 'Enter a positive whole MMK amount.');
+      return;
+    }
+    if (value > Number(wallet?.balance_mmk || 0)) {
+      Alert.alert(
+        'Insufficient balance',
+        'Your wallet does not have enough credit.',
+      );
+      return;
+    }
+    Alert.alert(
+      'Confirm shop payment',
+      `Pay ${formatAmount(value)} to ${
+        selectedMerchant.name
+      }? This cannot be undone by the resident.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm payment',
+          onPress: async () => {
+            setPaying(true);
+            try {
+              const transaction = await payPrimeCityMerchant({
+                merchant_id: selectedMerchant._id,
+                amount_mmk: value,
+                note: paymentNote.trim(),
+                idempotency_key: `wallet-${Date.now()}-${Math.random()
+                  .toString(36)
+                  .slice(2, 12)}`,
+              });
+              Alert.alert(
+                'Payment successful',
+                `${formatAmount(value)} paid to ${
+                  selectedMerchant.name
+                }.\nReference: ${transaction.payment_reference}`,
+              );
+              setPaymentAmount('');
+              setPaymentNote('');
+              setSelectedMerchant(null);
+              await loadWallet(true);
+            } catch (err) {
+              if (!err.sessionExpired) {
+                Alert.alert(
+                  'Payment failed',
+                  err.message || 'Please try again.',
+                );
+              }
+            } finally {
+              setPaying(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <ScreenContainer
+      navigation={navigation}
+      topBarVariant="stack"
+      title="My Wallet"
+      showBottomNav
+    >
+      {loading && !data ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={styles.container}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadWallet(true)}
+              tintColor={theme.primary}
+            />
+          }
+        >
+          {error ? (
+            <Card style={[styles.errorCard, { borderColor: theme.danger }]}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={22}
+                color={theme.danger}
+              />
+              <Text style={[styles.errorText, { color: theme.text }]}>
+                {error}
+              </Text>
+              <TouchableOpacity onPress={() => loadWallet()}>
+                <Text style={[styles.retryText, { color: theme.primary }]}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
+            </Card>
+          ) : null}
+
+          <View
+            style={[
+              styles.digitalCard,
+              {
+                backgroundColor: activeCard ? theme.primary : theme.card,
+                borderColor: activeCard ? theme.primary : theme.border,
+              },
+            ]}
+          >
+            <View style={styles.cardHeader}>
+              <View>
+                <Text
+                  style={[
+                    styles.cardEyebrow,
+                    { color: activeCard ? theme.primaryText : theme.subtext },
+                  ]}
+                >
+                  PRIME CITY RESIDENT
+                </Text>
+                <Text
+                  style={[
+                    styles.cardTitle,
+                    { color: activeCard ? theme.primaryText : theme.text },
+                  ]}
+                >
+                  RFID Access & Wallet
+                </Text>
+              </View>
+              <Ionicons
+                name="radio-outline"
+                size={30}
+                color={activeCard ? theme.primaryText : theme.inactive}
+              />
+            </View>
+            <Text
+              style={[
+                styles.cardNumber,
+                { color: activeCard ? theme.primaryText : theme.text },
+              ]}
+            >
+              {card?.masked_uid || 'No card assigned'}
+            </Text>
+            <View style={styles.cardFooter}>
+              <Text
+                style={[
+                  styles.cardStatus,
+                  { color: activeCard ? theme.primaryText : theme.subtext },
+                ]}
+              >
+                {String(card?.status || 'unassigned').toUpperCase()}
+              </Text>
+              <Ionicons
+                name={
+                  activeCard ? 'checkmark-circle' : 'information-circle-outline'
+                }
+                size={18}
+                color={activeCard ? theme.primaryText : theme.warning}
+              />
+            </View>
+          </View>
+
+          <Card>
+            <Text style={[styles.sectionLabel, { color: theme.subtext }]}>
+              MY WALLET BALANCE
+            </Text>
+            <Text style={[styles.balance, { color: theme.text }]}>
+              {formatAmount(wallet?.balance_mmk)}
+            </Text>
+            <View
+              style={[styles.infoBox, { backgroundColor: theme.primaryBg }]}
+            >
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={19}
+                color={theme.primary}
+              />
+              <Text style={[styles.infoText, { color: theme.text }]}>
+                Wallet credits are added by authorized Admin/Staff only. Every
+                payment is recorded in your private transaction history.
+              </Text>
+            </View>
+          </Card>
+
+          <Text style={[styles.heading, { color: theme.text }]}>
+            Pay at Prime City
+          </Text>
+          <Card>
+            <Text style={[styles.infoText, { color: theme.subtext }]}>
+              Choose an approved shop and confirm the exact amount shown by the
+              merchant. Every payment creates a private receipt.
+            </Text>
+            <Text style={[styles.formLabel, { color: theme.subtext }]}>
+              Shop
+            </Text>
+            <View style={styles.merchantList}>
+              {merchants.length ? (
+                merchants.map(merchant => {
+                  const selected = selectedMerchant?._id === merchant._id;
+                  return (
+                    <TouchableOpacity
+                      key={merchant._id}
+                      onPress={() => setSelectedMerchant(merchant)}
+                      style={[
+                        styles.merchantOption,
+                        {
+                          borderColor: selected ? theme.primary : theme.border,
+                          backgroundColor: selected
+                            ? theme.primaryBg
+                            : theme.card,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={
+                          selected ? 'radio-button-on' : 'storefront-outline'
+                        }
+                        size={19}
+                        color={selected ? theme.primary : theme.inactive}
+                      />
+                      <View style={styles.transactionCopy}>
+                        <Text
+                          style={[styles.residentName, { color: theme.text }]}
+                        >
+                          {merchant.name}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.residentMeta,
+                            { color: theme.subtext },
+                          ]}
+                        >
+                          {merchant.location || 'Prime City'} ·{' '}
+                          {merchant.merchant_code}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={[styles.emptyText, { color: theme.subtext }]}>
+                  No approved shops are available yet.
+                </Text>
+              )}
+            </View>
+            <Text style={[styles.formLabel, { color: theme.subtext }]}>
+              Exact amount (MMK)
+            </Text>
+            <TextInput
+              value={paymentAmount}
+              onChangeText={setPaymentAmount}
+              keyboardType="number-pad"
+              placeholder="Enter exact purchase amount"
+              placeholderTextColor={theme.inactive}
+              style={[
+                styles.input,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.input,
+                  borderColor: theme.border,
+                },
+              ]}
+            />
+            <Text style={[styles.formLabel, { color: theme.subtext }]}>
+              Note (optional)
+            </Text>
+            <TextInput
+              value={paymentNote}
+              onChangeText={setPaymentNote}
+              maxLength={160}
+              placeholder="Order or counter reference"
+              placeholderTextColor={theme.inactive}
+              style={[
+                styles.input,
+                {
+                  color: theme.text,
+                  backgroundColor: theme.input,
+                  borderColor: theme.border,
+                },
+              ]}
+            />
+            <TouchableOpacity
+              onPress={submitPayment}
+              disabled={paying || !activeCard}
+              style={[
+                styles.creditButton,
+                { backgroundColor: theme.primary },
+                (paying || !activeCard) && styles.disabled,
+              ]}
+            >
+              {paying ? (
+                <ActivityIndicator color={theme.primaryText} />
+              ) : (
+                <>
+                  <Ionicons
+                    name="wallet-outline"
+                    size={19}
+                    color={theme.primaryText}
+                  />
+                  <Text
+                    style={[styles.creditText, { color: theme.primaryText }]}
+                  >
+                    Confirm shop payment
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </Card>
+
+          <Text style={[styles.heading, { color: theme.text }]}>
+            Recent transactions
+          </Text>
+          {(data?.transactions || []).length ? (
+            data.transactions.map(item => (
+              <Card key={item._id}>
+                <View style={styles.transactionRow}>
+                  <View
+                    style={[
+                      styles.transactionIcon,
+                      {
+                        backgroundColor:
+                          item.type === 'Payment'
+                            ? theme.warningBg
+                            : theme.successBg,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        item.type === 'Payment'
+                          ? 'arrow-up-outline'
+                          : 'arrow-down-outline'
+                      }
+                      size={19}
+                      color={
+                        item.type === 'Payment' ? theme.warning : theme.success
+                      }
+                    />
+                  </View>
+                  <View style={styles.transactionCopy}>
+                    <Text
+                      style={[styles.transactionTitle, { color: theme.text }]}
+                    >
+                      {item.description}
+                    </Text>
+                    {item.merchant_id?.name ? (
+                      <Text
+                        style={[
+                          styles.transactionMeta,
+                          { color: theme.subtext },
+                        ]}
+                      >
+                        {item.merchant_id.name} ·{' '}
+                        {item.payment_reference || 'Receipt recorded'}
+                      </Text>
+                    ) : null}
+                    <Text
+                      style={[styles.transactionMeta, { color: theme.subtext }]}
+                    >
+                      {formatDate(item.created_at)}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.transactionAmount,
+                      {
+                        color:
+                          item.type === 'Payment'
+                            ? theme.warning
+                            : theme.success,
+                      },
+                    ]}
+                  >
+                    {item.type === 'Payment' ? '-' : '+'}
+                    {formatAmount(item.amount_mmk)}
+                  </Text>
+                </View>
+              </Card>
+            ))
+          ) : (
+            <Card>
+              <Text style={[styles.emptyText, { color: theme.subtext }]}>
+                No RFID wallet transactions yet.
+              </Text>
+            </Card>
+          )}
+        </ScrollView>
+      )}
+    </ScreenContainer>
+  );
+}
+
+function AdminRfidWalletScreen({ navigation }) {
+  const { theme } = useTheme();
+  const [residents, setResidents] = useState([]);
+  const [selectedResident, setSelectedResident] = useState(null);
+  const [search, setSearch] = useState('');
+  const [amount, setAmount] = useState('');
+  const [description, setDescription] = useState('RFID wallet top-up');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [merchants, setMerchants] = useState([]);
+  const [merchantName, setMerchantName] = useState('');
+  const [merchantLocation, setMerchantLocation] = useState('');
+  const [creatingMerchant, setCreatingMerchant] = useState(false);
+  const [settlementMerchant, setSettlementMerchant] = useState(null);
+  const [settlementAmount, setSettlementAmount] = useState('');
+  const [settlementReference, setSettlementReference] = useState('');
+  const [settling, setSettling] = useState(false);
+  const [merchantLedger, setMerchantLedger] = useState(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  const loadResidents = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [residentData, merchantData] = await Promise.all([
+        fetchResidentsForNotifications(),
+        fetchPrimeCityMerchants(),
+      ]);
+      setResidents(residentData);
+      setMerchants(merchantData);
+    } catch (err) {
+      if (!err.sessionExpired) {
+        setError(err.message || 'Unable to load residents');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadResidents();
+    }, [loadResidents]),
+  );
+
+  const filteredResidents = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return residents;
+    return residents.filter(resident =>
+      [resident.fullname, resident.email, resident.phone, resident.room_number]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [residents, search]);
+
+  const submitCredit = async () => {
+    const creditAmount = Number(amount);
+    if (!selectedResident?._id) {
+      Alert.alert(
+        'Select resident',
+        'Choose one resident for this wallet credit.',
+      );
+      return;
+    }
+    if (!Number.isInteger(creditAmount) || creditAmount <= 0) {
+      Alert.alert('Invalid amount', 'Enter a positive whole MMK amount.');
+      return;
+    }
+    if (!description.trim()) {
+      Alert.alert(
+        'Description required',
+        'Enter the reason for this wallet credit.',
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Confirm RFID wallet credit',
+      `Add ${formatAmount(creditAmount)} to ${selectedResident.fullname}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add credit',
+          onPress: async () => {
+            setSubmitting(true);
+            try {
+              const result = await creditRfidWallet({
+                resident_id: selectedResident._id,
+                amount_mmk: creditAmount,
+                description: description.trim(),
+              });
+              Alert.alert(
+                'Wallet updated',
+                `New balance: ${formatAmount(result.balance_mmk)}`,
+              );
+              setAmount('');
+              setDescription('RFID wallet top-up');
+            } catch (err) {
+              if (!err.sessionExpired) {
+                Alert.alert(
+                  'Unable to add credit',
+                  err.message || 'Please try again.',
+                );
+              }
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const submitMerchant = async () => {
+    if (!merchantName.trim() || !merchantLocation.trim()) {
+      Alert.alert(
+        'Shop details required',
+        'Enter the shop name and Prime City location.',
+      );
+      return;
+    }
+    setCreatingMerchant(true);
+    try {
+      await createPrimeCityMerchant({
+        name: merchantName.trim(),
+        location: merchantLocation.trim(),
+      });
+      setMerchantName('');
+      setMerchantLocation('');
+      await loadResidents();
+      Alert.alert(
+        'Shop created',
+        'Residents can now select this approved Prime City shop.',
+      );
+    } catch (err) {
+      if (!err.sessionExpired)
+        Alert.alert('Unable to create shop', err.message);
+    } finally {
+      setCreatingMerchant(false);
+    }
+  };
+
+  const submitSettlement = async () => {
+    const value = Number(settlementAmount);
+    if (
+      !settlementMerchant?._id ||
+      !Number.isInteger(value) ||
+      value <= 0 ||
+      !settlementReference.trim()
+    ) {
+      Alert.alert(
+        'Settlement details required',
+        'Choose a shop, enter a whole MMK amount, and add the external settlement reference.',
+      );
+      return;
+    }
+    if (value > Number(settlementMerchant.wallet_balance_mmk || 0)) {
+      Alert.alert(
+        'Invalid amount',
+        'Settlement cannot exceed the shop wallet balance.',
+      );
+      return;
+    }
+    Alert.alert(
+      'Confirm settlement',
+      `Record ${formatAmount(value)} settled to ${settlementMerchant.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Record settlement',
+          onPress: async () => {
+            setSettling(true);
+            try {
+              await settlePrimeCityMerchant(settlementMerchant._id, {
+                amount_mmk: value,
+                reference: settlementReference.trim(),
+              });
+              setSettlementAmount('');
+              setSettlementReference('');
+              setSettlementMerchant(null);
+              await loadResidents();
+              Alert.alert(
+                'Settlement recorded',
+                'The merchant ledger and Admin audit log were updated.',
+              );
+            } catch (err) {
+              if (!err.sessionExpired)
+                Alert.alert('Settlement failed', err.message);
+            } finally {
+              setSettling(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const chooseSettlementMerchant = async merchant => {
+    setSettlementMerchant(merchant);
+    setMerchantLedger(null);
+    setLedgerLoading(true);
+    try {
+      setMerchantLedger(await fetchPrimeCityMerchantLedger(merchant._id));
+    } catch (err) {
+      if (!err.sessionExpired)
+        Alert.alert('Unable to load ledger', err.message);
+    } finally {
+      setLedgerLoading(false);
+    }
+  };
+
+  return (
+    <ScreenContainer
+      navigation={navigation}
+      topBarVariant="stack"
+      title="Wallet & Shops"
+      showBottomNav
+    >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Card>
+          <Text style={[styles.heading, { color: theme.text }]}>
+            Credit resident wallet
+          </Text>
+          <Text style={[styles.infoText, { color: theme.subtext }]}>
+            Only residents with an active RFID card can receive wallet credit.
+            Each adjustment is recorded in the Admin audit log and resident
+            transaction history.
+          </Text>
+
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            Resident
+          </Text>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search name, room, phone, or email"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          {loading ? (
+            <ActivityIndicator color={theme.primary} />
+          ) : error ? (
+            <TouchableOpacity onPress={loadResidents} style={styles.errorCard}>
+              <Ionicons
+                name="alert-circle-outline"
+                size={18}
+                color={theme.danger}
+              />
+              <Text style={[styles.errorText, { color: theme.text }]}>
+                {error} · Retry
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.residentList}>
+              {filteredResidents.slice(0, 50).map(resident => {
+                const selected = selectedResident?._id === resident._id;
+                return (
+                  <TouchableOpacity
+                    key={resident._id}
+                    onPress={() => setSelectedResident(resident)}
+                    style={[
+                      styles.residentOption,
+                      {
+                        borderColor: selected ? theme.primary : theme.border,
+                        backgroundColor: selected
+                          ? theme.primaryBg
+                          : theme.card,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={
+                        selected
+                          ? 'radio-button-on'
+                          : 'radio-button-off-outline'
+                      }
+                      size={18}
+                      color={selected ? theme.primary : theme.inactive}
+                    />
+                    <View style={styles.residentCopy}>
+                      <Text
+                        style={[styles.residentName, { color: theme.text }]}
+                      >
+                        {resident.fullname}
+                      </Text>
+                      <Text
+                        style={[styles.residentMeta, { color: theme.subtext }]}
+                      >
+                        Room {resident.room_number || 'Unassigned'} ·{' '}
+                        {resident.phone || 'No phone'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            Amount (MMK)
+          </Text>
+          <TextInput
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="number-pad"
+            placeholder="Enter exact amount"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            Description
+          </Text>
+          <TextInput
+            value={description}
+            onChangeText={setDescription}
+            maxLength={240}
+            placeholder="Reason for wallet credit"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          <TouchableOpacity
+            onPress={submitCredit}
+            disabled={submitting}
+            style={[
+              styles.creditButton,
+              { backgroundColor: theme.primary },
+              submitting && styles.disabled,
+            ]}
+          >
+            {submitting ? (
+              <ActivityIndicator color={theme.primaryText} />
+            ) : (
+              <>
+                <Ionicons
+                  name="add-circle-outline"
+                  size={19}
+                  color={theme.primaryText}
+                />
+                <Text style={[styles.creditText, { color: theme.primaryText }]}>
+                  Add RFID wallet credit
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </Card>
+
+        <Card>
+          <Text style={[styles.heading, { color: theme.text }]}>
+            Prime City shops
+          </Text>
+          <Text style={[styles.infoText, { color: theme.subtext }]}>
+            Only approved shops below are visible in resident wallets. Shop
+            balances are ledger balances; external cash settlement must be
+            recorded with a verifiable reference.
+          </Text>
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            New shop name
+          </Text>
+          <TextInput
+            value={merchantName}
+            onChangeText={setMerchantName}
+            placeholder="Example: Prime City Café"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            Location
+          </Text>
+          <TextInput
+            value={merchantLocation}
+            onChangeText={setMerchantLocation}
+            placeholder="Example: Ground floor, Block A"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          <TouchableOpacity
+            onPress={submitMerchant}
+            disabled={creatingMerchant}
+            style={[
+              styles.secondaryButton,
+              { borderColor: theme.primary },
+              creatingMerchant && styles.disabled,
+            ]}
+          >
+            {creatingMerchant ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : (
+              <>
+                <Ionicons
+                  name="storefront-outline"
+                  size={19}
+                  color={theme.primary}
+                />
+                <Text
+                  style={[styles.secondaryButtonText, { color: theme.primary }]}
+                >
+                  Create approved shop
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            Merchant ledger
+          </Text>
+          <View style={styles.merchantList}>
+            {merchants.map(merchant => {
+              const selected = settlementMerchant?._id === merchant._id;
+              return (
+                <TouchableOpacity
+                  key={merchant._id}
+                  onPress={() => chooseSettlementMerchant(merchant)}
+                  style={[
+                    styles.merchantOption,
+                    {
+                      borderColor: selected ? theme.primary : theme.border,
+                      backgroundColor: selected ? theme.primaryBg : theme.card,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={selected ? 'radio-button-on' : 'storefront-outline'}
+                    size={19}
+                    color={selected ? theme.primary : theme.inactive}
+                  />
+                  <View style={styles.transactionCopy}>
+                    <Text style={[styles.residentName, { color: theme.text }]}>
+                      {merchant.name}
+                    </Text>
+                    <Text
+                      style={[styles.residentMeta, { color: theme.subtext }]}
+                    >
+                      {merchant.location} · {merchant.merchant_code}
+                    </Text>
+                    <Text
+                      style={[styles.merchantBalance, { color: theme.text }]}
+                    >
+                      Available to settle:{' '}
+                      {formatAmount(merchant.wallet_balance_mmk)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {ledgerLoading ? (
+            <ActivityIndicator
+              color={theme.primary}
+              style={styles.ledgerLoading}
+            />
+          ) : merchantLedger ? (
+            <View style={[styles.ledgerPanel, { borderColor: theme.border }]}>
+              <Text style={[styles.residentName, { color: theme.text }]}>
+                Recent shop receipts
+              </Text>
+              {(merchantLedger.payments || []).slice(0, 10).map(payment => (
+                <View
+                  key={payment._id}
+                  style={[
+                    styles.ledgerRow,
+                    { borderBottomColor: theme.border },
+                  ]}
+                >
+                  <View style={styles.transactionCopy}>
+                    <Text
+                      style={[styles.transactionTitle, { color: theme.text }]}
+                    >
+                      {payment.user_id?.fullname || 'Resident purchase'}
+                    </Text>
+                    <Text
+                      style={[styles.transactionMeta, { color: theme.subtext }]}
+                    >
+                      {payment.payment_reference} ·{' '}
+                      {formatDate(payment.created_at)}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[styles.transactionAmount, { color: theme.success }]}
+                  >
+                    {formatAmount(payment.amount_mmk)}
+                  </Text>
+                </View>
+              ))}
+              {!(merchantLedger.payments || []).length ? (
+                <Text style={[styles.emptyText, { color: theme.subtext }]}>
+                  No shop payments recorded.
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            Settlement amount (MMK)
+          </Text>
+          <TextInput
+            value={settlementAmount}
+            onChangeText={setSettlementAmount}
+            keyboardType="number-pad"
+            placeholder="Exact amount transferred externally"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            External reference
+          </Text>
+          <TextInput
+            value={settlementReference}
+            onChangeText={setSettlementReference}
+            placeholder="Bank/KPay transfer reference"
+            placeholderTextColor={theme.inactive}
+            style={[
+              styles.input,
+              {
+                color: theme.text,
+                backgroundColor: theme.input,
+                borderColor: theme.border,
+              },
+            ]}
+          />
+          <TouchableOpacity
+            onPress={submitSettlement}
+            disabled={settling}
+            style={[
+              styles.secondaryButton,
+              { borderColor: theme.primary },
+              settling && styles.disabled,
+            ]}
+          >
+            {settling ? (
+              <ActivityIndicator color={theme.primary} />
+            ) : (
+              <Text
+                style={[styles.secondaryButtonText, { color: theme.primary }]}
+              >
+                Record merchant settlement
+              </Text>
+            )}
+          </TouchableOpacity>
+        </Card>
+      </ScrollView>
+    </ScreenContainer>
+  );
+}
+
+export default function RfidCardScreen({ navigation }) {
+  const { user } = useAuth();
+  return ['Admin', 'Staff'].includes(user?.role) ? (
+    <AdminRfidWalletScreen navigation={navigation} />
+  ) : (
+    <ResidentRfidCardScreen navigation={navigation} />
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { padding: 16, paddingBottom: 40 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  errorCard: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  errorText: { flex: 1, fontSize: 13 },
+  retryText: { fontSize: 13, fontWeight: '700' },
+  digitalCard: {
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 16,
+    minHeight: 190,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardEyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  cardTitle: { fontSize: 19, fontWeight: '800', marginTop: 5 },
+  cardNumber: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 42,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 22,
+  },
+  cardStatus: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8 },
+  sectionLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 0.8 },
+  balance: { fontSize: 31, fontWeight: '800', marginTop: 8 },
+  infoBox: {
+    flexDirection: 'row',
+    gap: 9,
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 14,
+  },
+  infoText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  heading: { fontSize: 20, fontWeight: '800', marginTop: 8, marginBottom: 12 },
+  transactionRow: { flexDirection: 'row', alignItems: 'center' },
+  transactionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  transactionCopy: { flex: 1 },
+  transactionTitle: { fontSize: 14, fontWeight: '700' },
+  transactionMeta: { fontSize: 12, marginTop: 3 },
+  transactionAmount: { fontSize: 13, fontWeight: '800', marginLeft: 8 },
+  emptyText: { textAlign: 'center', fontSize: 14, paddingVertical: 12 },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 14,
+    marginBottom: 7,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  residentList: { gap: 7, maxHeight: 310 },
+  residentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderWidth: 1,
+    borderRadius: 11,
+    padding: 10,
+  },
+  residentCopy: { flex: 1 },
+  residentName: { fontSize: 14, fontWeight: '700' },
+  residentMeta: { fontSize: 12, marginTop: 3 },
+  merchantList: { gap: 8, marginTop: 2 },
+  merchantOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 11,
+    borderWidth: 1,
+    borderRadius: 11,
+  },
+  merchantBalance: { fontSize: 12, fontWeight: '800', marginTop: 5 },
+  ledgerLoading: { marginVertical: 14 },
+  ledgerPanel: { borderWidth: 1, borderRadius: 12, padding: 12, marginTop: 12 },
+  ledgerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+  },
+  creditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 18,
+  },
+  creditText: { fontSize: 15, fontWeight: '800' },
+  secondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 14,
+  },
+  secondaryButtonText: { fontSize: 14, fontWeight: '800' },
+  disabled: { opacity: 0.65 },
+});
