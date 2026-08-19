@@ -30,10 +30,11 @@ export async function markNotificationRead(notificationId) {
   });
 }
 
-export async function submitNotification(notificationId) {
+export async function submitNotification(notificationId, payload) {
   return apiRequest(`/notifications/${notificationId}/submit`, {
     method: 'POST',
     auth: true,
+    body: payload,
   });
 }
 
