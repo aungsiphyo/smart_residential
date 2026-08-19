@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import HomeScreen from '../screens/home/HomeScreen';
 import BillsScreen from '../screens/bills/BillsScreen';
@@ -52,6 +53,10 @@ function SosTabButton({ onPress, accessibilityState }) {
 
 export default function BottomTabNavigator() {
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  const androidPaddingBottom = Math.max(insets.bottom, 10);
+  const androidHeight = 58 + androidPaddingBottom;
 
   return (
     <Tab.Navigator
@@ -61,8 +66,8 @@ export default function BottomTabNavigator() {
           backgroundColor: theme.tabBar,
           borderTopColor: theme.tabBarBorder,
           borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+          height: Platform.OS === 'ios' ? 88 : androidHeight,
+          paddingBottom: Platform.OS === 'ios' ? 28 : androidPaddingBottom,
           paddingTop: 8,
           elevation: 0,
         },

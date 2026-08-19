@@ -8,6 +8,7 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -58,6 +59,7 @@ export default function NotificationsScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
+  const [replyText, setReplyText] = useState('');
   const unreadCount = items.filter(item => !item.is_read).length;
 
   const loadNotifications = useCallback(async (mode = 'initial') => {
@@ -114,7 +116,10 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const onOpenNotification = async item => {
-    setExpandedId(current => (current === item.id ? null : item.id));
+    setExpandedId(current => {
+      if (current !== item.id) setReplyText('');
+      return current === item.id ? null : item.id;
+    });
     if (!item.is_read) {
       setItems(current =>
         current.map(entry =>
@@ -130,9 +135,9 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  const onSubmit = async item => {
+  const onSubmit = async (item, message) => {
     try {
-      await submitNotification(item.id);
+      await submitNotification(item.id, { message: message || '' });
       setItems(current =>
         current.map(entry =>
           entry.id === item.id
@@ -256,50 +261,71 @@ export default function NotificationsScreen({ navigation }) {
               ) : null}
               {['Admin', 'Staff'].includes(user?.role) &&
               source &&
-              ['helper_request', 'resident_report'].includes(source.kind) ? (
-                <TouchableOpacity
-                  style={[
-                    styles.submitBtn,
-                    {
-                      backgroundColor:
-                        item.action_status === 'Submitted'
-                          ? theme.successBg
-                          : theme.primary,
-                    },
-                  ]}
-                  disabled={item.action_status === 'Submitted'}
-                  onPress={event => {
-                    event.stopPropagation?.();
-                    onSubmit(item);
-                  }}>
-                  <Ionicons
-                    name={
-                      item.action_status === 'Submitted'
-                        ? 'checkmark-done-outline'
-                        : 'send-outline'
-                    }
-                    size={15}
-                    color={
-                      item.action_status === 'Submitted'
-                        ? theme.success
-                        : theme.primaryText
-                    }
-                  />
-                  <Text
+              ['helper_request', 'resident_report', 'sos', 'emergency'].includes(
+                source.kind || item.type?.toLowerCase(),
+              ) ? (
+                <View>
+                  {item.action_status !== 'Submitted' && expanded && (
+                    <TextInput
+                      style={[
+                        styles.input,
+                        {
+                          color: theme.text,
+                          backgroundColor: theme.input,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      placeholder="Enter note or reply to resident"
+                      placeholderTextColor={theme.inactive}
+                      value={replyText}
+                      onChangeText={setReplyText}
+                      multiline
+                    />
+                  )}
+                  <TouchableOpacity
                     style={[
-                      styles.submitText,
+                      styles.submitBtn,
                       {
-                        color:
+                        backgroundColor:
                           item.action_status === 'Submitted'
-                            ? theme.success
-                            : theme.primaryText,
+                            ? theme.successBg
+                            : theme.primary,
                       },
-                    ]}>
-                    {item.action_status === 'Submitted'
-                      ? 'Submitted'
-                      : 'Submit & notify resident'}
-                  </Text>
-                </TouchableOpacity>
+                    ]}
+                    disabled={item.action_status === 'Submitted'}
+                    onPress={event => {
+                      event.stopPropagation?.();
+                      onSubmit(item, replyText);
+                    }}>
+                    <Ionicons
+                      name={
+                        item.action_status === 'Submitted'
+                          ? 'checkmark-done-outline'
+                          : 'send-outline'
+                      }
+                      size={15}
+                      color={
+                        item.action_status === 'Submitted'
+                          ? theme.success
+                          : theme.primaryText
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.submitText,
+                        {
+                          color:
+                            item.action_status === 'Submitted'
+                              ? theme.success
+                              : theme.primaryText,
+                        },
+                      ]}>
+                      {item.action_status === 'Submitted'
+                        ? 'Submitted'
+                        : 'Submit & notify resident'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               ) : null}
               <View style={styles.footerRow}>
                 <Text style={[styles.time, { color: theme.inactive }]}>
@@ -495,4 +521,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   retryText: { fontSize: 14, fontWeight: '600' },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginBottom: 8,
+    minHeight: 40,
+    textAlignVertical: 'top',
+  },
 });

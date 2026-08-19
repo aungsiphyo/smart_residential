@@ -749,7 +749,11 @@ function AdminRfidWalletScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           ) : (
-            <View style={styles.residentList}>
+            <ScrollView 
+              style={styles.residentList}
+              contentContainerStyle={{ gap: 7 }}
+              nestedScrollEnabled={true}
+            >
               {filteredResidents.slice(0, 50).map(resident => {
                 const selected = selectedResident?._id === resident._id;
                 return (
@@ -791,7 +795,7 @@ function AdminRfidWalletScreen({ navigation }) {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           )}
 
           <Text style={[styles.formLabel, { color: theme.subtext }]}>
@@ -1154,7 +1158,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 15,
   },
-  residentList: { gap: 7, maxHeight: 310 },
+  residentList: { maxHeight: 310 },
   residentOption: {
     flexDirection: 'row',
     alignItems: 'center',
