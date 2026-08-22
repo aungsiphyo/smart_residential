@@ -15,13 +15,14 @@ import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
 import { useTheme } from '../../context/ThemeContext';
 import {
+  buildNotificationRecipientPayload,
   fetchResidentsForNotifications,
   sendAdminNotification,
 } from '../../api/adminNotifications';
 
 const TARGETS = [
   { id: 'all', label: 'All residents', icon: 'people-outline' },
-  { id: 'one', label: 'One resident', icon: 'person-outline' },
+  { id: 'selected', label: 'Select residents', icon: 'people-circle-outline' },
 ];
 
 const NOTIFICATION_TYPES = ['General', 'Announcement', 'Emergency'];
@@ -30,7 +31,7 @@ export default function AdminNotificationScreen({ navigation }) {
   const { theme } = useTheme();
   const [target, setTarget] = useState('all');
   const [residents, setResidents] = useState([]);
-  const [selectedResident, setSelectedResident] = useState(null);
+  const [selectedResidentIds, setSelectedResidentIds] = useState([]);
   const [search, setSearch] = useState('');
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -85,16 +86,18 @@ export default function AdminNotificationScreen({ navigation }) {
       return;
     }
 
-    if (target === 'one' && !selectedResident?._id) {
-      Alert.alert('Select resident', 'Please choose a resident first.');
+    if (target === 'selected' && selectedResidentIds.length === 0) {
+      Alert.alert(
+        'Select residents',
+        'Please choose at least one resident first.',
+      );
       return;
     }
 
     setSubmitting(true);
     try {
       const res = await sendAdminNotification({
-        target: target === 'all' ? 'all_residents' : 'resident',
-        recipient_user_id: target === 'one' ? selectedResident._id : undefined,
+        ...buildNotificationRecipientPayload(target, selectedResidentIds),
         title: title.trim(),
         message: message.trim(),
         type,
@@ -116,6 +119,7 @@ export default function AdminNotificationScreen({ navigation }) {
       );
       setTitle('');
       setMessage('');
+      if (target === 'selected') setSelectedResidentIds([]);
     } catch (err) {
       if (!err.sessionExpired) {
         Alert.alert(
@@ -176,10 +180,10 @@ export default function AdminNotificationScreen({ navigation }) {
           </View>
         </View>
 
-        {target === 'one' ? (
+        {target === 'selected' ? (
           <View style={styles.section}>
             <Text style={[styles.label, { color: theme.subtext }]}>
-              Resident
+              Residents (choose one or more)
             </Text>
             <View
               style={[
@@ -201,6 +205,24 @@ export default function AdminNotificationScreen({ navigation }) {
               />
             </View>
 
+            <View style={styles.selectionSummary}>
+              <Text style={[styles.selectionText, { color: theme.subtext }]}>
+                {selectedResidentIds.length}{' '}
+                {selectedResidentIds.length === 1 ? 'resident' : 'residents'}{' '}
+                selected
+              </Text>
+              {selectedResidentIds.length ? (
+                <TouchableOpacity
+                  onPress={() => setSelectedResidentIds([])}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={[styles.clearText, { color: theme.primary }]}>
+                    Clear all
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
             {loadingResidents ? (
               <View style={styles.residentLoading}>
                 <ActivityIndicator color={theme.primary} />
@@ -213,7 +235,8 @@ export default function AdminNotificationScreen({ navigation }) {
               </Card>
             ) : (
               filteredResidents.map(resident => {
-                const selected = selectedResident?._id === resident._id;
+                const residentId = String(resident._id);
+                const selected = selectedResidentIds.includes(residentId);
                 return (
                   <TouchableOpacity
                     key={resident._id}
@@ -226,7 +249,13 @@ export default function AdminNotificationScreen({ navigation }) {
                         borderColor: selected ? theme.primary : theme.border,
                       },
                     ]}
-                    onPress={() => setSelectedResident(resident)}
+                    onPress={() =>
+                      setSelectedResidentIds(current =>
+                        current.includes(residentId)
+                          ? current.filter(item => item !== residentId)
+                          : [...current, residentId],
+                      )
+                    }
                     activeOpacity={0.8}
                   >
                     <View
@@ -370,7 +399,11 @@ export default function AdminNotificationScreen({ navigation }) {
                 color={theme.primaryText}
               />
               <Text style={[styles.sendText, { color: theme.primaryText }]}>
-                Send notification
+                {target === 'selected' && selectedResidentIds.length
+                  ? `Send to ${selectedResidentIds.length} resident${
+                      selectedResidentIds.length === 1 ? '' : 's'
+                    }`
+                  : 'Send notification'}
               </Text>
             </>
           )}
@@ -408,6 +441,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   searchInput: { flex: 1, fontSize: 14 },
+  selectionSummary: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  selectionText: { fontSize: 12, fontWeight: '700' },
+  clearText: { fontSize: 12, fontWeight: '800' },
   residentLoading: { paddingVertical: 18 },
   errorText: { fontSize: 14 },
   residentRow: {

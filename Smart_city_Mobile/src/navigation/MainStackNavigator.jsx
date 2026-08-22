@@ -8,6 +8,7 @@ import HelperRequestScreen from '../screens/helpers/HelperRequestScreen';
 import HelperListScreen from '../screens/helpers/HelperListScreen';
 import AdminNotificationScreen from '../screens/admin/AdminNotificationScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
+import AdminAiReviewScreen from '../screens/admin/AdminAiReviewScreen';
 import ReportIssueScreen from '../screens/reports/ReportIssueScreen';
 import ResidentActivityHistoryScreen from '../screens/history/ResidentActivityHistoryScreen';
 import ProfileSettingsScreen from '../screens/profile/ProfileSettingsScreen';
@@ -34,6 +35,7 @@ export default function MainStackNavigator() {
         component={AdminNotificationScreen}
       />
       <Stack.Screen name="AdminReports" component={AdminReportsScreen} />
+      <Stack.Screen name="AdminAiReview" component={AdminAiReviewScreen} />
       <Stack.Screen name="ReportIssue" component={ReportIssueScreen} />
       <Stack.Screen
         name="ActivityHistory"
