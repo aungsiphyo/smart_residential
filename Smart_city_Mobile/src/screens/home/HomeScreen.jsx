@@ -413,6 +413,12 @@ export default function HomeScreen({ navigation }) {
             icon: 'document-text-outline',
             screen: 'AdminReports',
           },
+          {
+            id: 'ai-feedback-rag',
+            label: 'AI Feedback & RAG',
+            icon: 'sparkles-outline',
+            screen: 'AdminAiReview',
+          },
         ]
       : QUICK_ACTIONS;
 

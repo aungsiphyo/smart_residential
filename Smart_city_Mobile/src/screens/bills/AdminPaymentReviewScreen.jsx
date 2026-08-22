@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Card from '../../components/Card';
 import ScreenContainer from '../../components/ScreenContainer';
@@ -44,23 +45,23 @@ export default function AdminPaymentReviewScreen({ navigation }) {
   const { theme } = useTheme();
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [token, setToken] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [working, setWorking] = useState(false);
   const [reasonAction, setReasonAction] = useState(null);
   const [reason, setReason] = useState('');
+  const [proofState, setProofState] = useState('idle');
+  const [proofLocalUri, setProofLocalUri] = useState('');
+  const proofFileRef = useRef('');
+  const proofDownloadJobRef = useRef(null);
+  const proofRequestIdRef = useRef(0);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const [submissions, accessToken] = await Promise.all([
-        fetchPaymentSubmissions({ limit: 100 }),
-        getAccessToken(),
-      ]);
+      const submissions = await fetchPaymentSubmissions({ limit: 100 });
       setItems(submissions);
-      setToken(accessToken || '');
     } catch (err) {
       if (!err.sessionExpired) {
         Alert.alert(
@@ -79,6 +80,106 @@ export default function AdminPaymentReviewScreen({ navigation }) {
       load();
     }, [load]),
   );
+
+  const cleanupProofFile = useCallback(() => {
+    proofRequestIdRef.current += 1;
+
+    if (proofDownloadJobRef.current !== null) {
+      try {
+        RNFS.stopDownload(proofDownloadJobRef.current);
+      } catch (_err) {
+        // The native download may already have completed.
+      }
+      proofDownloadJobRef.current = null;
+    }
+
+    const previousFile = proofFileRef.current;
+    proofFileRef.current = '';
+    if (previousFile) RNFS.unlink(previousFile).catch(() => {});
+  }, []);
+
+  useEffect(() => cleanupProofFile, [cleanupProofFile]);
+
+  const downloadProof = async (item, allowTokenRefresh = true) => {
+    cleanupProofFile();
+    const requestId = proofRequestIdRef.current;
+    setProofLocalUri('');
+    setProofState('loading');
+
+    if (!item?.proof_url) {
+      setProofState('error');
+      return;
+    }
+
+    const downloadOnce = async (accessToken, suffix = '') => {
+      const filePath = `${RNFS.CachesDirectoryPath}/primecity-payment-proof-${
+        item._id
+      }-${Date.now()}${suffix}.img`;
+      proofFileRef.current = filePath;
+      const request = RNFS.downloadFile({
+        fromUrl: `${API_BASE_URL}${item.proof_url}`,
+        toFile: filePath,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cacheable: false,
+      });
+      proofDownloadJobRef.current = request.jobId;
+      const result = await request.promise;
+      proofDownloadJobRef.current = null;
+      return { filePath, result };
+    };
+
+    try {
+      let accessToken = await getAccessToken();
+      if (!accessToken) throw new Error('No access token available');
+
+      let downloaded = await downloadOnce(accessToken);
+      if (
+        downloaded.result.statusCode === 401 &&
+        allowTokenRefresh &&
+        proofRequestIdRef.current === requestId
+      ) {
+        await RNFS.unlink(downloaded.filePath).catch(() => {});
+        proofFileRef.current = '';
+
+        // Reuse the normal API refresh path, then retry with the newly stored
+        // token. The credential is never added to the URL or persisted here.
+        await fetchPaymentSubmissions({ limit: 1 });
+        accessToken = await getAccessToken();
+        if (!accessToken) throw new Error('No refreshed access token available');
+        downloaded = await downloadOnce(accessToken, '-retry');
+      }
+
+      if (proofRequestIdRef.current !== requestId) return;
+      if (
+        downloaded.result.statusCode < 200 ||
+        downloaded.result.statusCode >= 300
+      ) {
+        throw new Error(
+          `Payment proof request failed (${downloaded.result.statusCode})`,
+        );
+      }
+
+      setProofLocalUri(`file://${downloaded.filePath}`);
+      setProofState('loaded');
+    } catch (err) {
+      if (proofRequestIdRef.current !== requestId) return;
+      if (!err.sessionExpired) setProofState('error');
+    }
+  };
+
+  const openSubmission = item => {
+    setSelected(item);
+    downloadProof(item);
+  };
+
+  const closeSubmission = () => {
+    cleanupProofFile();
+    setProofLocalUri('');
+    setProofState('idle');
+    setSelected(null);
+  };
+
+  const retryProof = () => downloadProof(selected);
 
   const sortedItems = useMemo(
     () =>
@@ -127,7 +228,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
           ? 'The payment remains active while Admin verifies it.'
           : 'The resident will receive the payment status update.',
       );
-      setSelected(null);
+      closeSubmission();
       setReasonAction(null);
       setReason('');
       await load(true);
@@ -168,7 +269,10 @@ export default function AdminPaymentReviewScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const active = ACTIVE_STATUSES.has(item.status);
     return (
-      <TouchableOpacity onPress={() => setSelected(item)} activeOpacity={0.82}>
+      <TouchableOpacity
+        onPress={() => openSubmission(item)}
+        activeOpacity={0.82}
+      >
         <Card>
           <View style={styles.cardTop}>
             <View style={styles.flex}>
@@ -177,7 +281,8 @@ export default function AdminPaymentReviewScreen({ navigation }) {
                 {item.user_id?.fullname || 'Resident'}
               </Text>
               <Text style={[styles.meta, { color: theme.subtext }]}>
-                {paymentCategory(item)} · {item.bill_id?.title || 'Service bill'} ·{' '}
+                {paymentCategory(item)} ·{' '}
+                {item.bill_id?.title || 'Service bill'} ·{' '}
                 {formatDate(item.submitted_at)}
               </Text>
             </View>
@@ -262,7 +367,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
         visible={Boolean(selected)}
         transparent
         animationType="slide"
-        onRequestClose={() => setSelected(null)}
+        onRequestClose={closeSubmission}
       >
         <View style={styles.overlay}>
           <View style={[styles.sheet, { backgroundColor: theme.card }]}>
@@ -270,22 +375,62 @@ export default function AdminPaymentReviewScreen({ navigation }) {
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
                 Verify payment
               </Text>
-              <TouchableOpacity
-                onPress={() => setSelected(null)}
-                disabled={working}
-              >
+              <TouchableOpacity onPress={closeSubmission} disabled={working}>
                 <Ionicons name="close" size={26} color={theme.icon} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.sheetContent}>
-              <Image
-                source={{
-                  uri: `${API_BASE_URL}${selected?.proof_url || ''}`,
-                  headers: token ? { Authorization: `Bearer ${token}` } : {},
-                }}
-                style={styles.proof}
-                resizeMode="contain"
-              />
+              <View style={styles.proofFrame}>
+                {proofLocalUri ? (
+                  <Image
+                    source={{ uri: proofLocalUri }}
+                    style={styles.proof}
+                    resizeMode="contain"
+                    onError={() => setProofState('error')}
+                  />
+                ) : null}
+                {proofState === 'loading' ? (
+                  <View style={styles.proofStatus}>
+                    <ActivityIndicator size="large" color={theme.primary} />
+                    <Text style={styles.proofStatusText}>
+                      Loading private screenshot…
+                    </Text>
+                  </View>
+                ) : null}
+                {proofState === 'error' ? (
+                  <View style={styles.proofStatus}>
+                    <Ionicons
+                      name="image-outline"
+                      size={34}
+                      color={theme.inactive}
+                    />
+                    <Text style={styles.proofStatusText}>
+                      Unable to display the payment screenshot
+                    </Text>
+                    <TouchableOpacity
+                      style={[
+                        styles.proofRetry,
+                        { borderColor: theme.primary },
+                      ]}
+                      onPress={retryProof}
+                    >
+                      <Ionicons
+                        name="refresh-outline"
+                        size={16}
+                        color={theme.primary}
+                      />
+                      <Text
+                        style={[
+                          styles.proofRetryText,
+                          { color: theme.primary },
+                        ]}
+                      >
+                        Retry screenshot
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
               <View
                 style={[styles.verifyBox, { backgroundColor: theme.input }]}
               >
@@ -538,12 +683,36 @@ const styles = StyleSheet.create({
   },
   sheetTitle: { fontSize: 19, fontWeight: '900' },
   sheetContent: { padding: 16, paddingTop: 0, paddingBottom: 36 },
-  proof: {
+  proofFrame: {
     width: '100%',
     height: 360,
     backgroundColor: '#000000',
     borderRadius: 12,
+    overflow: 'hidden',
   },
+  proof: {
+    width: '100%',
+    height: '100%',
+  },
+  proofStatus: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    gap: 10,
+    padding: 20,
+  },
+  proofStatusText: { color: '#CBD5E1', fontSize: 13, textAlign: 'center' },
+  proofRetry: {
+    minHeight: 38,
+    borderWidth: 1,
+    borderRadius: 9,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  proofRetryText: { fontSize: 12, fontWeight: '800' },
   verifyBox: { borderRadius: 11, padding: 14, marginTop: 12 },
   verifyLabel: { fontSize: 12, fontWeight: '700' },
   verifyAmount: { fontSize: 24, fontWeight: '900', marginTop: 4 },

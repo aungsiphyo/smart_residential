@@ -51,7 +51,7 @@ The Version 2 update preserves the existing navigation and resident features whi
 - Admin and Staff receive the authorized cross-resident bill view.
 - Tapping a bill opens a detail popup with its fee category, exact category amount, due date, status, and relevant breakdown.
 - Resident `Pay Now` shows the exact amount and KPay phone number `09965139303`, with copy actions and manual-open instructions. The app does not invent or use an unverified KPay deep link.
-- Residents can upload a JPEG, PNG, or WebP KPay screenshot up to 5 MB. New screenshots are stored privately in MongoDB GridFS and are readable only through an authenticated, ownership-checked endpoint.
+- Residents can upload a JPEG, PNG, or WebP KPay screenshot up to 5 MB. New screenshots are stored privately in MongoDB GridFS and are readable only through an authenticated, ownership-checked endpoint. Android Admin review downloads the authorized proof into the app-private cache for reliable display and removes that temporary file as soon as the review modal closes.
 - Uploading a screenshot changes the bill to `Payment Submitted`; it never marks the bill Paid. Admin/Staff can mark it Under Review, approve it, reject it, or request resubmission.
 - Approval atomically finalizes the active submission and changes the bill to `Paid`. Rejected submissions become inactive so the resident can submit a corrected screenshot.
 - Payment approval/rejection and new category bills create resident notifications. Admin receives a database/realtime/push notification that identifies the submitting resident, room, fee category, and exact amount.
@@ -70,7 +70,8 @@ The Version 2 update preserves the existing navigation and resident features whi
 
 ### Notifications and admin workflow
 
-- Admin can send a real notification to all residents or select one resident from the backend resident list.
+- Admin can keep `All residents` selected for a community-wide send, or use `Select residents` to choose one or multiple residents from the searchable backend resident list. Selected IDs are de-duplicated and validated as resident accounts before any notification is created.
+- A selected-recipient send creates one private MongoDB notification per chosen resident, emits realtime notification events only to those residents, and sends FCM to their registered devices. Invalid or missing selected accounts reject the whole request instead of producing a partial send.
 - Notifications are persisted in MongoDB, delivered in-app through authenticated Socket.IO, and registered for Firebase device push.
 - Android Firebase notifications appear in the system tray while the app is backgrounded or normally closed. Versioned high-importance channels provide the default system sound and vibration for community, helper, and urgent alerts, subject to the resident's Android notification settings.
 - Profile Settings provides a direct link to Android notification settings so residents can enable permission, sound, and vibration. Lock-screen push visibility is private to reduce exposure of message content.
@@ -133,6 +134,7 @@ The Version 2 update preserves the existing navigation and resident features whi
 - RAG retrieval uses audience/role filters, document metadata, query-relevant chunks, and source information.
 - Positive and categorized negative feedback can be submitted from chat. Feedback is private by default and is never promoted automatically.
 - Admin review APIs can approve or reject feedback. Approval requires separately reviewed knowledge text, creates an auditable knowledge record, and does not publish raw private chat content.
+- The Admin Home quick actions now include `AI Feedback & RAG`. Admin/Staff can review pending, approved, and rejected feedback, manually write privacy-safe reusable knowledge, publish it to the existing RAG collection, inspect active/inactive knowledge, and deactivate a knowledge item without deleting its audit history.
 
 ### Backend security and observability
 
@@ -154,7 +156,8 @@ The Version 2 update preserves the existing navigation and resident features whi
 - Full account-field editing remains intentionally unavailable to residents; the photo-only Settings screen is active.
 - Never place Firebase Admin credentials, database credentials, signing keys, or other server secrets in the mobile application.
 - Set `PLAYGROUND_BASE_FEE_MMK` and `PLAYGROUND_RESIDENT_DISCOUNT_PERCENT` on the EC2 backend to publish the official playground rate and resident-child discount. Restart PM2 only after validating the values; neither value belongs in the mobile bundle.
-- Set a random server-only `VISITOR_QR_SIGNING_SECRET` of at least 32 characters on EC2 before using pre-registration passes. Keep it stable across PM2 restarts, never place it in the app/QR payload/repository, and rotate it only when intentionally invalidating all outstanding passes. If omitted, the backend uses the existing `JWT_SECRET` only when it is at least 32 characters.
+- Set a random server-only `VISITOR_QR_SIGNING_SECRET` of at least 32 characters on EC2 before using pre-registration passes. Keep it stable across PM2 restarts, never place it in the app/QR payload/repository, and rotate it only when intentionally invalidating all outstanding passes. For compatibility with an older deployment, a configured shorter `JWT_SECRET` is converted into a purpose-specific 32-byte HMAC key; this prevents the registration failure seen on the previous server while a dedicated high-entropy visitor secret remains the production recommendation. Existing passes created with a 32+ character secret keep their original signature behavior.
+- The backend creates the signed QR before saving a pre-registration, so a signing/configuration failure cannot leave a visitor record with no usable pass. Public API errors do not expose signing configuration details.
 
 ## Tech Stack
 
@@ -284,7 +287,7 @@ When using a backend on your development machine:
 | Visitors | `/visitors`, `/visitors/register`, `/visitors/:id/qr`, `/api/qr-scan` |
 | Reports and SOS | `/reports`, `/reports/mine`, `/reports/:id/submit`, `/sos` |
 | AI assistant | `/ai/chat`, `/ai/voice`, `/ai/history`, `/ai/history/sessions`, `/ai/history/:conversationId`, `/ai/feedback` |
-| AI feedback review | `/ai/feedback/admin`, `/ai/feedback/:id/review` |
+| AI feedback review and RAG Admin view | `/ai/feedback/admin`, `/ai/feedback/:id/review`, `/knowledge`, `/knowledge/:id` |
 | Admin audit log | `/audit-logs` |
 | MCP discovery | `/mcp/tools` |
 
@@ -429,13 +432,13 @@ npm test
 
 Verification performed for the Version 2 update:
 
-- Mobile Jest application test: passed.
-- ESLint: zero errors; seven pre-existing non-blocking inline-style warnings intentionally left unchanged.
+- Mobile Jest application, Admin AI/RAG API, and single/multiple notification-target tests: 7 of 7 passed.
+- ESLint: zero errors; eight pre-existing non-blocking inline-style warnings intentionally left unchanged.
 - Android debug build: `BUILD SUCCESSFUL`.
 - Android production JavaScript bundle: generated successfully with all assets.
 - iOS was intentionally not retested in this Android-first phase.
 - Android cold launch: verified twice after force-stop with no fatal runtime or application-registration error.
-- Backend privacy, intent, reviewer, room-scope, visitor-scope, category-billing, exact-amount, private-proof, payment-state, room-finance, audible-push payload, role-escalation, wallet/merchant authorization, and signed visitor QR tests: 41 of 41 passed.
+- Backend privacy, intent, reviewer, room-scope, visitor-scope, category-billing, exact-amount, private-proof, payment-state, room-finance, audible-push payload, role-escalation, wallet/merchant authorization, signed visitor QR, and bounded notification-target tests: 48 of 48 passed. This includes all/single/multiple recipient handling, short-JWT compatibility, and unchanged signatures for existing 32+ character QR secrets.
 - MongoDB GridFS proof round-trip in an isolated test database: upload, private metadata, byte-identical download, and cleanup passed.
 - Isolated-database billing E2E: monthly total creation, resident own-room read, exact-amount screenshot submit, Admin queue, owner/Admin private-proof access, Under Review, atomic Paid approval, notification creation, and Paid readback passed.
 - Billing negative/security E2E: cross-room bill read returned `404`, another resident's private proof returned `403`, double approval returned `409`, and resubmission after Paid returned `409`.
