@@ -1,12 +1,22 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
 
-export default function TopBar({ navigation, variant = 'main', title }) {
-  const { theme } = useTheme();
+export default function TopBar({
+  navigation,
+  variant = 'main',
+  title,
+  themeOverride,
+  onBackPress,
+  brandImageSource,
+  brandLabel = 'PrimeCity',
+}) {
+  const { theme: appTheme } = useTheme();
+  const theme = themeOverride || appTheme;
   const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
   const isStack = variant === 'stack';
@@ -20,26 +30,76 @@ export default function TopBar({ navigation, variant = 'main', title }) {
           backgroundColor: theme.surface,
           borderBottomColor: theme.border,
         },
-      ]}>
-      <View style={styles.row}>
+      ]}
+    >
+      <View style={[styles.row, brandImageSource && styles.brandedRow]}>
         {isStack ? (
           <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => navigation?.goBack()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            style={[
+              styles.backBtn,
+              themeOverride && styles.billBackBtn,
+              themeOverride && {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}
+            onPress={() => (onBackPress ? onBackPress() : navigation?.goBack())}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <Ionicons name="chevron-back" size={24} color={theme.icon} />
           </TouchableOpacity>
         ) : (
           <View style={styles.brand}>
-            <View style={[styles.logoIcon, { backgroundColor: theme.primary }]}>
-              <Ionicons name="business" size={16} color={theme.primaryText} />
-            </View>
-            <Text style={[styles.logo, { color: theme.text }]}>PrimeCity</Text>
+            {brandImageSource ? (
+              <View
+                style={[
+                  styles.logoImageFrame,
+                  {
+                    backgroundColor: theme.background,
+                    borderColor: theme.primary,
+                  },
+                ]}
+              >
+                <Image
+                  source={brandImageSource}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                  accessibilityIgnoresInvertColors
+                />
+              </View>
+            ) : (
+              <View
+                style={[
+                  styles.logoIcon,
+                  {
+                    backgroundColor: theme.primary,
+                    borderColor: theme.primary,
+                  },
+                  themeOverride && styles.billControlBorder,
+                ]}
+              >
+                <Ionicons name="business" size={16} color={theme.primaryText} />
+              </View>
+            )}
+            <Text
+              style={[
+                styles.logo,
+                brandImageSource && styles.brandedLogo,
+                { color: theme.text },
+              ]}
+            >
+              {brandLabel}
+            </Text>
           </View>
         )}
 
         {isStack && (
-          <Text style={[styles.stackTitle, { color: theme.text }]} numberOfLines={1}>
+          <Text
+            style={[styles.stackTitle, { color: theme.text }]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
         )}
@@ -48,11 +108,27 @@ export default function TopBar({ navigation, variant = 'main', title }) {
           {!isStack && (
             <>
               <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: theme.card }]}
-                onPress={() => navigation?.navigate('Notifications')}>
-                <Ionicons name="notifications-outline" size={20} color={theme.icon} />
+                style={[
+                  styles.iconBtn,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                  },
+                  themeOverride && styles.billControlBorder,
+                ]}
+                onPress={() => navigation?.navigate('Notifications')}
+                accessibilityRole="button"
+                accessibilityLabel="Open notifications"
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={20}
+                  color={theme.icon}
+                />
                 {unreadCount > 0 ? (
-                  <View style={[styles.badge, { backgroundColor: theme.danger }]}>
+                  <View
+                    style={[styles.badge, { backgroundColor: theme.danger }]}
+                  >
                     <Text style={styles.badgeText}>
                       {unreadCount > 99 ? '99+' : unreadCount}
                     </Text>
@@ -60,9 +136,23 @@ export default function TopBar({ navigation, variant = 'main', title }) {
                 ) : null}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.iconBtn, { backgroundColor: theme.card }]}
-                onPress={() => navigation?.navigate('PreRegister')}>
-                <Ionicons name="person-add-outline" size={20} color={theme.icon} />
+                style={[
+                  styles.iconBtn,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                  },
+                  themeOverride && styles.billControlBorder,
+                ]}
+                onPress={() => navigation?.navigate('PreRegister')}
+                accessibilityRole="button"
+                accessibilityLabel="Pre-register a visitor"
+              >
+                <Ionicons
+                  name="person-add-outline"
+                  size={20}
+                  color={theme.icon}
+                />
               </TouchableOpacity>
             </>
           )}
@@ -82,6 +172,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  brandedRow: { height: 68, paddingHorizontal: 18 },
   brand: {
     flex: 1,
     flexDirection: 'row',
@@ -95,13 +186,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoImageFrame: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  logoImage: { width: 43, height: 43 },
   logo: {
     fontWeight: '700',
     fontSize: 18,
     letterSpacing: -0.3,
   },
+  brandedLogo: { fontSize: 20, fontWeight: '800', letterSpacing: -0.4 },
   backBtn: {
     marginRight: 4,
+  },
+  billBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  billControlBorder: {
+    borderWidth: 1,
   },
   stackTitle: {
     flex: 1,

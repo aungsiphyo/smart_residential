@@ -6,17 +6,17 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text } from '../../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
-import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchBills } from '../../api/bills';
+import billTheme from './billTheme';
 
 const SERVICE_ICONS = {
   Water: 'water-outline',
@@ -90,7 +90,7 @@ function getStatusTheme(status, theme) {
 }
 
 export default function BillsScreen({ navigation }) {
-  const { theme } = useTheme();
+  const theme = billTheme;
   const { user } = useAuth();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -143,7 +143,7 @@ export default function BillsScreen({ navigation }) {
         onPress={() => setSelectedBill(item)}
         activeOpacity={0.84}
       >
-        <Card>
+        <Card style={styles.billCard}>
           <View style={styles.row}>
             <View
               style={[
@@ -244,7 +244,7 @@ export default function BillsScreen({ navigation }) {
     : [];
 
   return (
-    <ScreenContainer navigation={navigation}>
+    <ScreenContainer navigation={navigation} themeOverride={theme}>
       <FlatList
         data={bills}
         keyExtractor={item => String(item._id)}
@@ -272,7 +272,7 @@ export default function BillsScreen({ navigation }) {
               <View
                 style={[
                   styles.summary,
-                  { backgroundColor: theme.card, borderColor: theme.border },
+                  { backgroundColor: theme.card, borderColor: theme.primary },
                 ]}
               >
                 <Text style={[styles.summaryLabel, { color: theme.subtext }]}>
@@ -381,7 +381,12 @@ export default function BillsScreen({ navigation }) {
         onRequestClose={() => setSelectedBill(null)}
       >
         <View style={styles.overlay}>
-          <View style={[styles.sheet, { backgroundColor: theme.card }]}>
+          <View
+            style={[
+              styles.sheet,
+              { backgroundColor: theme.card, borderColor: theme.primary },
+            ]}
+          >
             <View style={styles.sheetHeader}>
               <View style={styles.details}>
                 <Text style={[styles.sheetTitle, { color: theme.text }]}>
@@ -409,7 +414,9 @@ export default function BillsScreen({ navigation }) {
                   Due {formatDate(selectedBill?.due_date)} ·{' '}
                   {selectedBill?.status}
                 </Text>
-                <Text style={[styles.categorySummary, { color: theme.primary }]}>
+                <Text
+                  style={[styles.categorySummary, { color: theme.primary }]}
+                >
                   {getBillCategory(selectedBill)} · separately payable
                 </Text>
               </View>
@@ -573,28 +580,63 @@ export default function BillsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, paddingBottom: 32, flexGrow: 1 },
-  header: { marginBottom: 8 },
-  heading: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-    marginBottom: 4,
+  list: {
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 36,
+    flexGrow: 1,
   },
-  sub: { fontSize: 14, marginBottom: 14 },
+  header: { marginBottom: 10 },
+  heading: {
+    fontSize: 31,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+    marginBottom: 7,
+  },
+  sub: { fontSize: 14, lineHeight: 20, marginBottom: 18 },
+  billCard: {
+    backgroundColor: billTheme.card,
+    borderColor: billTheme.border,
+    borderRadius: 20,
+    padding: 17,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    elevation: 5,
+  },
   categoryBadge: {
     alignSelf: 'flex-start',
-    borderRadius: 7,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    marginTop: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#5B3C08',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 6,
   },
-  categoryText: { fontSize: 10, fontWeight: '800' },
-  categorySummary: { fontSize: 12, fontWeight: '800', marginTop: 6 },
-  summary: { borderRadius: 14, borderWidth: 1, padding: 14, marginBottom: 12 },
-  summaryLabel: { fontSize: 12, fontWeight: '600', marginBottom: 4 },
-  summaryValue: { fontSize: 20, fontWeight: '800' },
-  adminActions: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  categoryText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
+  categorySummary: { fontSize: 12, fontWeight: '900', marginTop: 8 },
+  summary: {
+    borderRadius: 22,
+    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    marginBottom: 14,
+    shadowColor: billTheme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.13,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    marginBottom: 5,
+  },
+  summaryValue: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
+  adminActions: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   adminButton: {
     flex: 1,
     flexDirection: 'row',
@@ -603,55 +645,60 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderColor: 'transparent',
-    borderRadius: 10,
-    paddingVertical: 11,
+    borderRadius: 13,
+    minHeight: 48,
+    paddingHorizontal: 8,
+    paddingVertical: 12,
   },
-  adminButtonText: { fontSize: 12, fontWeight: '800' },
+  adminButtonText: { fontSize: 12, fontWeight: '900' },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: 14,
+    padding: 13,
+    marginBottom: 14,
+    backgroundColor: billTheme.dangerBg,
   },
-  errorText: { flex: 1, fontSize: 13 },
+  errorText: { flex: 1, fontSize: 13, lineHeight: 19 },
   row: { flexDirection: 'row', alignItems: 'flex-start' },
   serviceIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#3E3527',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
   },
   details: { flex: 1, paddingRight: 8 },
-  service: { fontSize: 15, fontWeight: '700', marginBottom: 5 },
+  service: { fontSize: 16, fontWeight: '800', marginBottom: 5 },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 3,
+    marginBottom: 4,
   },
-  due: { flex: 1, fontSize: 12 },
-  right: { alignItems: 'flex-end', maxWidth: '38%' },
+  due: { flex: 1, fontSize: 12, lineHeight: 17 },
+  right: { alignItems: 'flex-end', maxWidth: '40%' },
   amount: {
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 7,
+    fontSize: 17,
+    fontWeight: '900',
+    marginBottom: 8,
     textAlign: 'right',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 9,
   },
-  status: { fontSize: 11, fontWeight: '700' },
-  detailsHint: { fontSize: 11, fontWeight: '700', marginTop: 10 },
+  status: { fontSize: 11, fontWeight: '800' },
+  detailsHint: { fontSize: 12, fontWeight: '800', marginTop: 12 },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -659,43 +706,60 @@ const styles = StyleSheet.create({
   },
   sheet: {
     maxHeight: '88%',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1,
+    borderBottomWidth: 0,
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 18,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
-  sheetTitle: { fontSize: 21, fontWeight: '900' },
-  sheetSubtitle: { fontSize: 13, marginTop: 4 },
-  sheetContent: { paddingHorizontal: 18, paddingBottom: 40 },
-  detailSummary: { borderRadius: 12, padding: 15 },
-  detailLabel: { fontSize: 11, fontWeight: '700', marginBottom: 5 },
-  detailTotal: { fontSize: 27, fontWeight: '900' },
+  sheetTitle: { fontSize: 23, fontWeight: '900', letterSpacing: -0.4 },
+  sheetSubtitle: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+  sheetContent: { paddingHorizontal: 20, paddingBottom: 42 },
+  detailSummary: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#3E3527',
+    padding: 17,
+  },
+  detailLabel: { fontSize: 11, fontWeight: '800', marginBottom: 6 },
+  detailTotal: { fontSize: 29, fontWeight: '900', letterSpacing: -0.5 },
   breakdownTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    marginTop: 20,
-    marginBottom: 4,
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 22,
+    marginBottom: 5,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
     borderBottomWidth: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   breakdownLabel: { flex: 1, fontSize: 13 },
   breakdownAmount: { fontSize: 13, fontWeight: '800' },
-  adminDetail: { borderRadius: 12, padding: 14, marginTop: 14 },
+  adminDetail: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#252C30',
+    padding: 15,
+    marginTop: 14,
+  },
   adminDetailText: { fontSize: 13, fontWeight: '700', marginBottom: 12 },
   cutoffWarning: {
     flexDirection: 'row',
     gap: 9,
-    borderRadius: 12,
-    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#5B3C08',
+    padding: 14,
     marginTop: 12,
   },
   warningTitle: { fontSize: 13, fontWeight: '800' },
@@ -705,9 +769,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 12,
+    borderRadius: 14,
+    minHeight: 52,
     padding: 15,
-    marginTop: 18,
+    marginTop: 20,
+    shadowColor: billTheme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
   payButtonText: { fontSize: 16, fontWeight: '900' },
   centered: {

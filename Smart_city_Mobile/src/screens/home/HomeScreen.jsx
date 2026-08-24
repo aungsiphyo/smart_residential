@@ -8,7 +8,6 @@ import React, {
 import {
   Animated,
   View,
-  Text,
   FlatList,
   ImageBackground,
   Linking,
@@ -17,19 +16,22 @@ import {
   ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
+import { AppText as Text } from '../../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
-import Card from '../../components/Card';
 // local chat components removed: using global FloatingChat instead
-import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchAnnouncements } from '../../api/announcements';
 import { fetchAdvertisements } from '../../api/advertisements';
 import { fetchBills } from '../../api/bills';
 import { fetchProfile } from '../../api/profile';
+import notificationTheme from '../notifications/notificationTheme';
 
-const QUICK_ACTIONS = [
+const HOME_HERO_IMAGE = require('../../assets/home-prime-city-night.png');
+const HOME_BRAND_IMAGE = require('../../assets/app-icon-master.png');
+
+export const QUICK_ACTIONS = Object.freeze([
   { id: 'bills', label: 'Bills', icon: 'receipt-outline', screen: 'Bills' },
   {
     id: 'helpers',
@@ -79,16 +81,18 @@ const QUICK_ACTIONS = [
     icon: 'time-outline',
     screen: 'ActivityHistory',
   },
-];
+]);
 
-const TYPE_COLORS = {
-  Maintenance: 'warning',
-  Event: 'primary',
-};
+const HOME_ANNOUNCEMENT_TYPES = Object.freeze({
+  General: { colorKey: 'primary', icon: 'information-circle-outline' },
+  Maintenance: { colorKey: 'warning', icon: 'construct-outline' },
+  Event: { colorKey: 'danger', icon: 'calendar-outline' },
+});
 
-const AD_WINDOW_SIZE = 7;
+export const AD_WINDOW_SIZE = 7;
+export const AD_ADVANCE_INTERVAL = 4500;
 
-function getTimeGreeting(date) {
+export function getTimeGreeting(date) {
   const hour = date.getHours();
 
   if (hour >= 5 && hour < 12) return 'Good morning';
@@ -98,7 +102,7 @@ function getTimeGreeting(date) {
   return 'Good night';
 }
 
-function getAdvertisementWindow(items, startIndex) {
+export function getAdvertisementWindow(items, startIndex) {
   if (items.length <= AD_WINDOW_SIZE) return items;
 
   return Array.from(
@@ -107,15 +111,95 @@ function getAdvertisementWindow(items, startIndex) {
   );
 }
 
-function AdvertisementCarousel({ advertisements, loading }) {
-  const { theme } = useTheme();
+export function getAdvertisementIndex(offset, snapWidth, itemCount) {
+  if (!itemCount || !snapWidth) return 0;
+  const nextIndex = Math.round(offset / snapWidth);
+  return Math.max(0, Math.min(nextIndex, itemCount - 1));
+}
+
+export function getHomeIdentity(user) {
+  const displayName =
+    user?.fullname?.trim() ||
+    user?.name?.trim() ||
+    user?.email?.split('@')[0] ||
+    'Resident';
+  const roomNumber = user?.room_number || null;
+  const residenceLabel = ['Admin', 'Staff'].includes(user?.role)
+    ? user.role === 'Admin'
+      ? 'Administrator'
+      : 'Staff'
+    : roomNumber
+    ? `Unit ${roomNumber} · Smart Residential`
+    : user?.role || 'Resident';
+
+  return { displayName, residenceLabel };
+}
+
+export function isHomeResident(role) {
+  return !['Admin', 'Staff'].includes(role);
+}
+
+export function getOverdueBills(bills, currentTime, role) {
+  if (!isHomeResident(role)) return [];
+
+  return bills.filter(bill => {
+    const dueAt = new Date(bill?.due_date).getTime();
+    return (
+      bill?.status !== 'Paid' &&
+      Number.isFinite(dueAt) &&
+      dueAt < currentTime.getTime()
+    );
+  });
+}
+
+export function getHomeQuickActions(role) {
+  if (role !== 'Admin') return QUICK_ACTIONS;
+
+  return [
+    {
+      id: 'admin-notifications',
+      label: 'Send Noti',
+      icon: 'send-outline',
+      screen: 'AdminNotifications',
+    },
+    ...QUICK_ACTIONS.filter(
+      action => action.id !== 'history' && !action.residentOnly,
+    ).map(action => {
+      if (action.id === 'helpers') {
+        return { ...action, label: 'Helper Requests' };
+      }
+      if (action.id === 'rfid-card') {
+        return { ...action, label: 'Wallet & Shops' };
+      }
+      return action;
+    }),
+    {
+      id: 'resident-reports',
+      label: 'Resident Reports',
+      icon: 'document-text-outline',
+      screen: 'AdminReports',
+    },
+    {
+      id: 'ai-feedback-rag',
+      label: 'AI Feedback & RAG',
+      icon: 'sparkles-outline',
+      screen: 'AdminAiReview',
+    },
+  ];
+}
+
+export function AdvertisementCarousel({
+  advertisements,
+  loading,
+  theme = notificationTheme,
+}) {
   const { width } = useWindowDimensions();
   const listRef = useRef(null);
   const scrollX = useRef(new Animated.Value(0)).current;
   const [activeIndex, setActiveIndex] = useState(0);
   const [windowStart, setWindowStart] = useState(0);
   const [failedImages, setFailedImages] = useState({});
-  const cardWidth = Math.max(280, width - 32);
+  const cardWidth = Math.max(280, width - 36);
   const snapWidth = cardWidth + 12;
   const visibleAdvertisements = useMemo(
     () => getAdvertisementWindow(advertisements, windowStart),
@@ -159,16 +243,15 @@ function AdvertisementCarousel({ advertisements, loading }) {
 
         return 0;
       });
-    }, 4500);
+    }, AD_ADVANCE_INTERVAL);
 
     return () => clearInterval(timer);
   }, [advertisements.length, snapWidth, visibleAdvertisements.length]);
 
   const onMomentumEnd = event => {
     const offset = event.nativeEvent.contentOffset.x;
-    const nextIndex = Math.round(offset / snapWidth);
     setActiveIndex(
-      Math.max(0, Math.min(nextIndex, visibleAdvertisements.length - 1)),
+      getAdvertisementIndex(offset, snapWidth, visibleAdvertisements.length),
     );
   };
 
@@ -193,7 +276,7 @@ function AdvertisementCarousel({ advertisements, loading }) {
     <View style={styles.adsSection}>
       <View style={styles.adsHeader}>
         <Text style={[styles.sectionTitle, { color: theme.text }]}>
-          Advertisements
+          Featured
         </Text>
         <Text style={[styles.adsCount, { color: theme.subtext }]}>
           {activeIndex + 1}/{visibleAdvertisements.length}
@@ -261,6 +344,7 @@ function AdvertisementCarousel({ advertisements, loading }) {
                   }
                   imageStyle={styles.adImageStyle}
                 >
+                  <View style={styles.adOverallOverlay} />
                   <View style={styles.adImageOverlay}>
                     <View style={styles.adContent}>
                       <Text style={styles.adCompany} numberOfLines={1}>
@@ -273,6 +357,21 @@ function AdvertisementCarousel({ advertisements, loading }) {
                         {item.content}
                       </Text>
                     </View>
+                  </View>
+                  <View
+                    style={[
+                      styles.adLabel,
+                      {
+                        backgroundColor: theme.surface + 'E6',
+                        borderColor: theme.primary,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.adLabelText, { color: theme.primary }]}
+                    >
+                      Ad
+                    </Text>
                   </View>
                 </ImageBackground>
               ) : (
@@ -312,6 +411,21 @@ function AdvertisementCarousel({ advertisements, loading }) {
                       {item.content}
                     </Text>
                   </View>
+                  <View
+                    style={[
+                      styles.adLabel,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.primary,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.adLabelText, { color: theme.primary }]}
+                    >
+                      Ad
+                    </Text>
+                  </View>
                 </View>
               )}
             </Animated.View>
@@ -323,6 +437,13 @@ function AdvertisementCarousel({ advertisements, loading }) {
               disabled={!item.linkUrl}
               onPress={() => Linking.openURL(item.linkUrl).catch(() => null)}
               style={styles.adTouchable}
+              accessibilityRole={item.linkUrl ? 'link' : 'text'}
+              accessibilityLabel={`${item.companyName || 'Sponsored'}: ${
+                item.title
+              }`}
+              accessibilityHint={
+                item.linkUrl ? 'Opens the advertisement link' : undefined
+              }
             >
               {card}
             </TouchableOpacity>
@@ -349,7 +470,7 @@ function AdvertisementCarousel({ advertisements, loading }) {
 }
 
 export default function HomeScreen({ navigation }) {
-  const { theme } = useTheme();
+  const theme = notificationTheme;
   const { user, setUser } = useAuth();
   // chat is managed globally by ChatProvider / FloatingChat
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -358,69 +479,14 @@ export default function HomeScreen({ navigation }) {
   const [residentBills, setResidentBills] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [loadingAdvertisements, setLoadingAdvertisements] = useState(true);
-  const displayName =
-    user?.fullname?.trim() ||
-    user?.name?.trim() ||
-    user?.email?.split('@')[0] ||
-    'Resident';
-  const roomNumber = user?.room_number || null;
-  const residenceLabel = ['Admin', 'Staff'].includes(user?.role)
-    ? user.role === 'Admin'
-      ? 'Administrator'
-      : 'Staff'
-    : roomNumber
-    ? `Unit ${roomNumber} · Smart Residential`
-    : user?.role || 'Resident';
+  const { displayName, residenceLabel } = getHomeIdentity(user);
   const timeGreeting = getTimeGreeting(currentTime);
-  const isResident = !['Admin', 'Staff'].includes(user?.role);
+  const isResident = isHomeResident(user?.role);
   const overdueBills = useMemo(
-    () =>
-      isResident
-        ? residentBills.filter(bill => {
-            const dueAt = new Date(bill?.due_date).getTime();
-            return (
-              bill?.status !== 'Paid' &&
-              Number.isFinite(dueAt) &&
-              dueAt < currentTime.getTime()
-            );
-          })
-        : [],
-    [currentTime, isResident, residentBills],
+    () => getOverdueBills(residentBills, currentTime, user?.role),
+    [currentTime, residentBills, user?.role],
   );
-  const quickActions =
-    user?.role === 'Admin'
-      ? [
-          {
-            id: 'admin-notifications',
-            label: 'Send Noti',
-            icon: 'send-outline',
-            screen: 'AdminNotifications',
-          },
-          ...QUICK_ACTIONS.filter(
-            action => action.id !== 'history' && !action.residentOnly,
-          ).map(action => {
-            if (action.id === 'helpers') {
-              return { ...action, label: 'Helper Requests' };
-            }
-            if (action.id === 'rfid-card') {
-              return { ...action, label: 'Wallet & Shops' };
-            }
-            return action;
-          }),
-          {
-            id: 'resident-reports',
-            label: 'Resident Reports',
-            icon: 'document-text-outline',
-            screen: 'AdminReports',
-          },
-          {
-            id: 'ai-feedback-rag',
-            label: 'AI Feedback & RAG',
-            icon: 'sparkles-outline',
-            screen: 'AdminAiReview',
-          },
-        ]
-      : QUICK_ACTIONS;
+  const quickActions = getHomeQuickActions(user?.role);
 
   const navigateTo = screen => navigation.navigate(screen);
 
@@ -501,32 +567,57 @@ export default function HomeScreen({ navigation }) {
   );
 
   return (
-    <ScreenContainer navigation={navigation}>
+    <ScreenContainer
+      navigation={navigation}
+      themeOverride={theme}
+      topBarBrandImage={HOME_BRAND_IMAGE}
+      topBarBrandLabel="Prime City"
+    >
       <FlatList
         data={announcements}
         keyExtractor={i => i.id}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            <View style={styles.hero}>
-              <Text style={[styles.greeting, { color: theme.subtext }]}>
-                {timeGreeting}
-              </Text>
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.72}
-                style={[styles.heading, { color: theme.text }]}
-              >
-                Welcome, {displayName}
-              </Text>
-              <Text style={[styles.sub, { color: theme.subtext }]}>
-                {residenceLabel}
-              </Text>
-            </View>
+            <ImageBackground
+              source={HOME_HERO_IMAGE}
+              style={styles.hero}
+              imageStyle={styles.heroImage}
+              resizeMode="cover"
+              accessible
+              accessibilityLabel={`${timeGreeting}. Welcome, ${displayName}. ${residenceLabel}.`}
+            >
+              <View style={styles.heroOverallOverlay} />
+              <View style={styles.heroLeftScrim} />
+              <View style={styles.heroBottomScrim} />
+              <View style={styles.heroCopy}>
+                <Text style={[styles.greeting, { color: theme.subtext }]}>
+                  {timeGreeting}
+                </Text>
+                <Text
+                  accessibilityRole="header"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.64}
+                  style={[styles.heading, { color: theme.text }]}
+                >
+                  Welcome, {displayName}
+                </Text>
+                <Text style={[styles.sub, { color: theme.subtext }]}>
+                  {residenceLabel}
+                </Text>
+              </View>
+            </ImageBackground>
 
             {overdueBills.length > 0 ? (
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={`Open overdue bills. ${
+                  overdueBills.length
+                } ${
+                  overdueBills.length === 1 ? 'bill is' : 'bills are'
+                } past due.`}
                 activeOpacity={0.86}
                 onPress={() => navigateTo('Bills')}
                 style={[
@@ -537,11 +628,13 @@ export default function HomeScreen({ navigation }) {
                   },
                 ]}
               >
-                <Ionicons
-                  name="warning-outline"
-                  size={24}
-                  color={theme.danger}
-                />
+                <View style={styles.overdueIcon}>
+                  <Ionicons
+                    name="warning-outline"
+                    size={25}
+                    color={theme.danger}
+                  />
+                </View>
                 <View style={styles.overdueCopy}>
                   <Text style={[styles.overdueTitle, { color: theme.danger }]}>
                     Payment overdue
@@ -566,47 +659,83 @@ export default function HomeScreen({ navigation }) {
             <AdvertisementCarousel
               advertisements={advertisements}
               loading={loadingAdvertisements}
+              theme={theme}
             />
 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Quick actions
-            </Text>
-            <View style={styles.actionsRow}>
-              {quickActions.map(action => (
-                <TouchableOpacity
-                  key={action.id}
-                  style={[
-                    styles.actionBtn,
-                    { backgroundColor: theme.card, borderColor: theme.border },
-                  ]}
-                  onPress={() => navigateTo(action.screen)}
-                >
-                  <View
+            <View
+              style={[
+                styles.quickActionsPanel,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: theme.goldBorder,
+                },
+              ]}
+            >
+              <Text style={[styles.quickActionsTitle, { color: theme.text }]}>
+                Quick actions
+              </Text>
+              <View style={styles.actionsRow}>
+                {quickActions.map(action => (
+                  <TouchableOpacity
+                    key={action.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${action.label} quick action`}
                     style={[
-                      styles.actionIcon,
-                      { backgroundColor: theme.primary + '22' },
+                      styles.actionBtn,
+                      styles.actionGoldBorder,
+                      {
+                        backgroundColor: theme.card,
+                      },
                     ]}
+                    activeOpacity={0.76}
+                    onPress={() => navigateTo(action.screen)}
                   >
-                    <Ionicons
-                      name={action.icon}
-                      size={22}
-                      color={theme.primary}
-                    />
-                  </View>
-                  <Text style={[styles.actionLabel, { color: theme.text }]}>
-                    {action.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <View
+                      style={[
+                        styles.actionIcon,
+                        {
+                          backgroundColor: theme.primaryBg,
+                          borderColor: theme.goldBorder,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={action.icon}
+                        size={30}
+                        color={theme.primary}
+                      />
+                    </View>
+                    <Text
+                      numberOfLines={2}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.78}
+                      style={[styles.actionLabel, { color: theme.text }]}
+                    >
+                      {action.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
 
             {!['Admin', 'Staff'].includes(user?.role) ? (
-              <Card style={styles.reportCard}>
+              <View
+                style={[
+                  styles.reportCard,
+                  {
+                    backgroundColor: theme.card,
+                    borderColor: theme.border,
+                  },
+                ]}
+              >
                 <View style={styles.reportRow}>
                   <View
                     style={[
                       styles.reportIcon,
-                      { backgroundColor: theme.warningBg },
+                      {
+                        backgroundColor: theme.warningBg,
+                        borderColor: theme.goldBorder,
+                      },
                     ]}
                   >
                     <Ionicons
@@ -625,7 +754,15 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 </View>
                 <TouchableOpacity
-                  style={[styles.reportBtn, { backgroundColor: theme.primary }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Report now"
+                  style={[
+                    styles.reportBtn,
+                    styles.reportGoldBorder,
+                    {
+                      backgroundColor: theme.primary,
+                    },
+                  ]}
                   onPress={() => navigateTo('ReportIssue')}
                   activeOpacity={0.85}
                 >
@@ -640,10 +777,10 @@ export default function HomeScreen({ navigation }) {
                     Report now
                   </Text>
                 </TouchableOpacity>
-              </Card>
+              </View>
             ) : null}
 
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            <Text style={[styles.latestTitle, { color: theme.text }]}>
               Latest announcements
             </Text>
           </>
@@ -654,7 +791,12 @@ export default function HomeScreen({ navigation }) {
               <ActivityIndicator color={theme.primary} />
             </View>
           ) : (
-            <Card>
+            <View
+              style={[
+                styles.emptyCard,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
               <View style={styles.emptyRow}>
                 <Ionicons
                   name="megaphone-outline"
@@ -665,23 +807,30 @@ export default function HomeScreen({ navigation }) {
                   No announcements yet
                 </Text>
               </View>
-            </Card>
+            </View>
           )
         }
         renderItem={({ item }) => {
-          const accent = TYPE_COLORS[item.type] || 'primary';
-          const accentColor = theme[accent];
-          const accentBg = theme[`${accent}Bg`] || theme.card;
+          const typeMeta =
+            HOME_ANNOUNCEMENT_TYPES[item.type] ||
+            HOME_ANNOUNCEMENT_TYPES.General;
+          const accentColor = theme[typeMeta.colorKey];
+          const accentBg = theme[`${typeMeta.colorKey}Bg`] || theme.primaryBg;
           return (
-            <Card>
+            <View
+              style={[
+                styles.announcementCard,
+                {
+                  backgroundColor: theme.card,
+                  borderColor: theme.border,
+                  borderLeftColor: accentColor,
+                },
+              ]}
+            >
               <View style={styles.cardHeader}>
                 <View style={[styles.typeBadge, { backgroundColor: accentBg }]}>
                   <Ionicons
-                    name={
-                      item.type === 'Event'
-                        ? 'calendar-outline'
-                        : 'construct-outline'
-                    }
+                    name={typeMeta.icon}
                     size={14}
                     color={accentColor}
                   />
@@ -696,7 +845,7 @@ export default function HomeScreen({ navigation }) {
               <Text style={[styles.cardText, { color: theme.subtext }]}>
                 {item.message}
               </Text>
-            </Card>
+            </View>
           );
         }}
       />
@@ -705,31 +854,90 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, paddingBottom: 32 },
-  hero: { marginBottom: 24 },
-  greeting: { fontSize: 14, fontWeight: '500', marginBottom: 4 },
-  heading: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 4,
+  list: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 120,
   },
-  sub: { fontSize: 14 },
+  hero: {
+    width: '100%',
+    aspectRatio: 1.58,
+    minHeight: 225,
+    maxHeight: 270,
+    marginBottom: 22,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#3B3327',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.32,
+    shadowRadius: 18,
+    elevation: 7,
+  },
+  heroImage: { borderRadius: 22 },
+  heroOverallOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  heroLeftScrim: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: '82%',
+    backgroundColor: 'rgba(3, 5, 6, 0.58)',
+  },
+  heroBottomScrim: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    height: '34%',
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  heroCopy: {
+    maxWidth: '80%',
+    paddingHorizontal: 22,
+    paddingVertical: 22,
+  },
+  greeting: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  heading: {
+    fontSize: 29,
+    lineHeight: 37,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 7,
+  },
+  sub: { fontSize: 15, lineHeight: 23, fontWeight: '600' },
   overdueBanner: {
-    minHeight: 92,
+    minHeight: 96,
     marginBottom: 24,
-    padding: 14,
-    borderRadius: 14,
+    padding: 15,
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 11,
   },
+  overdueIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(240, 82, 74, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   overdueCopy: { flex: 1 },
   overdueTitle: { fontSize: 16, fontWeight: '800', marginBottom: 4 },
   overdueMessage: { fontSize: 13, fontWeight: '600', lineHeight: 19 },
-  adsSection: {
-    marginBottom: 28,
-  },
+  adsSection: { marginBottom: 26 },
   adsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -738,29 +946,32 @@ const styles = StyleSheet.create({
   adsCount: { fontSize: 12, fontWeight: '700', marginBottom: 12 },
   adTouchable: { marginRight: 12 },
   adCard: {
-    height: 178,
-    borderRadius: 14,
+    height: 180,
+    borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
   },
-  adImage: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  adImageStyle: {
-    borderRadius: 14,
+  adImage: { flex: 1 },
+  adImageStyle: { borderRadius: 20 },
+  adOverallOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.18)',
   },
   adImageOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.24)',
   },
   adContent: {
-    padding: 14,
-    backgroundColor: 'rgba(0,0,0,0.38)',
+    width: '100%',
+    alignSelf: 'stretch',
+    padding: 17,
+    paddingRight: 22,
+    backgroundColor: 'rgba(2, 4, 5, 0.58)',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
   },
   adCompany: {
-    color: '#E0F7FA',
+    color: '#D9D2CA',
     fontSize: 12,
     fontWeight: '800',
     marginBottom: 4,
@@ -772,10 +983,23 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   adText: {
-    color: '#E2E8F0',
+    color: '#D9D2CA',
     fontSize: 13,
     lineHeight: 18,
   },
+  adLabel: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    minWidth: 34,
+    height: 30,
+    paddingHorizontal: 8,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adLabelText: { fontSize: 13, fontWeight: '800' },
   adFallback: {
     flex: 1,
     padding: 16,
@@ -795,8 +1019,8 @@ const styles = StyleSheet.create({
   adFallbackTitle: { fontSize: 18, fontWeight: '800', marginBottom: 5 },
   adFallbackText: { fontSize: 13, lineHeight: 18 },
   adSkeleton: {
-    height: 178,
-    borderRadius: 14,
+    height: 180,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
@@ -814,30 +1038,74 @@ const styles = StyleSheet.create({
   },
   adDotActive: { width: 18 },
   adDotInactive: { width: 7 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', marginBottom: 12 },
+  sectionTitle: {
+    fontSize: 19,
+    lineHeight: 26,
+    fontWeight: '900',
+    marginBottom: 12,
+  },
+  quickActionsPanel: {
+    marginBottom: 26,
+    paddingHorizontal: 14,
+    paddingTop: 16,
+    paddingBottom: 14,
+    borderRadius: 22,
+    borderWidth: 1,
+    shadowColor: '#F5AD27',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.12,
+    shadowRadius: 15,
+    elevation: 4,
+  },
+  quickActionsTitle: {
+    fontSize: 20,
+    lineHeight: 27,
+    fontWeight: '900',
+    marginHorizontal: 2,
+    marginBottom: 14,
+  },
   actionsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 28,
   },
   actionBtn: {
-    width: '47%',
-    padding: 14,
-    borderRadius: 14,
+    width: '48.35%',
+    minHeight: 108,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    borderRadius: 17,
     borderWidth: 1,
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  actionGoldBorder: { borderColor: 'rgba(245, 173, 39, 0.5)' },
   actionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
-  actionLabel: { fontSize: 13, fontWeight: '600' },
-  reportCard: { marginBottom: 28 },
+  actionLabel: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  reportCard: {
+    marginBottom: 26,
+    padding: 17,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    elevation: 4,
+  },
   reportRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   reportIcon: {
     width: 44,
@@ -846,41 +1114,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    borderWidth: 1,
   },
   reportCopy: { flex: 1 },
   reportTitle: { fontSize: 16, fontWeight: '700', marginBottom: 3 },
   reportSub: { fontSize: 13, lineHeight: 18 },
   reportBtn: {
-    minHeight: 42,
-    borderRadius: 10,
+    minHeight: 48,
+    borderRadius: 13,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
   },
+  reportGoldBorder: { borderColor: '#FFD56A' },
   reportBtnText: { fontSize: 14, fontWeight: '700' },
-  aiCard: { marginBottom: 28 },
-  aiRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  aiIconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  latestTitle: {
+    fontSize: 19,
+    lineHeight: 26,
+    fontWeight: '900',
+    marginBottom: 12,
   },
-  aiCopy: { flex: 1 },
-  aiTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  aiSub: { fontSize: 13, lineHeight: 18 },
-  aiCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
+  announcementCard: {
+    padding: 17,
+    marginBottom: 12,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderLeftWidth: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.18,
+    shadowRadius: 9,
+    elevation: 3,
   },
-  aiCtaText: { fontSize: 14, fontWeight: '600' },
   cardHeader: { marginBottom: 8 },
   typeBadge: {
     flexDirection: 'row',
@@ -893,8 +1160,13 @@ const styles = StyleSheet.create({
   },
   typeText: { fontSize: 12, fontWeight: '600' },
   cardTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
-  cardText: { fontSize: 14, lineHeight: 20 },
+  cardText: { fontSize: 14, lineHeight: 21 },
   emptyAnnouncements: { paddingVertical: 20 },
+  emptyCard: {
+    padding: 17,
+    borderRadius: 19,
+    borderWidth: 1,
+  },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   emptyText: { fontSize: 14 },
 });

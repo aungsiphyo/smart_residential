@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, PermissionsAndroid, Platform } from 'react-native';
+import {
+  PermissionsAndroid,
+  Platform,
+} from 'react-native';
+import { showPrimeAlert } from '../services/primeAlert';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import RNFS from 'react-native-fs';
 import { sendVoiceMessage } from '../services/chatService';
@@ -53,7 +57,7 @@ export default function useVoiceAssistant({
   const startListening = useCallback(async () => {
     const hasPermission = await requestMicrophonePermission();
     if (!hasPermission) {
-      Alert.alert('Permission Denied', 'Please grant microphone access to use voice chat.');
+      showPrimeAlert('Permission Denied', 'Please grant microphone access to use voice chat.');
       return;
     }
 

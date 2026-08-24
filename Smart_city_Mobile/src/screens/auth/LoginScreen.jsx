@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
@@ -30,7 +29,7 @@ export default function LoginScreen({ navigation }) {
 
   const onContinue = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Please enter your email and password.');
+      showPrimeAlert('Missing fields', 'Please enter your email and password.');
       return;
     }
 
@@ -38,9 +37,9 @@ export default function LoginScreen({ navigation }) {
     try {
       await loginStep1(email.trim(), password);
       setOtpSent(true);
-      Alert.alert('OTP sent', 'Check your email for the verification code.');
+      showPrimeAlert('OTP sent', 'Check your email for the verification code.');
     } catch (err) {
-      Alert.alert('Sign in failed', err.message || 'Unable to sign in.');
+      showPrimeAlert('Sign in failed', err.message || 'Unable to sign in.');
     } finally {
       setLoading(false);
     }
@@ -48,7 +47,7 @@ export default function LoginScreen({ navigation }) {
 
   const onVerifyOtp = async () => {
     if (!otp.trim()) {
-      Alert.alert('Missing OTP', 'Enter the code sent to your email.');
+      showPrimeAlert('Missing OTP', 'Enter the code sent to your email.');
       return;
     }
 
@@ -65,7 +64,7 @@ export default function LoginScreen({ navigation }) {
         room_number: res.user.room_number,
       });
     } catch (err) {
-      Alert.alert(
+      showPrimeAlert(
         'Verification failed',
         err.message || 'Invalid or expired OTP.',
       );

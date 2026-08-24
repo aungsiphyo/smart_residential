@@ -10,11 +10,10 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useAuth } from '../../context/AuthContext';
@@ -154,6 +153,10 @@ export default function ChatSheet({ visible, onClose }) {
     const bubbleBg = isUser ? theme.primary : theme.card;
     const textColor = isUser ? theme.primaryText : theme.text;
     const align = isUser ? 'flex-end' : 'flex-start';
+    const bubbleColors = {
+      backgroundColor: item.isError ? theme.dangerBg : bubbleBg,
+      borderColor: isUser ? 'transparent' : theme.border,
+    };
 
     return (
       <View style={[styles.messageRow, { alignItems: align }]}>
@@ -165,11 +168,8 @@ export default function ChatSheet({ visible, onClose }) {
         <View
           style={[
             styles.bubble,
-            {
-              backgroundColor: item.isError ? theme.dangerBg : bubbleBg,
-              borderColor: isUser ? 'transparent' : theme.border,
-              borderWidth: isUser ? 0 : 1,
-            },
+            isUser ? styles.userBubble : styles.assistantBubble,
+            bubbleColors,
           ]}>
           <Text style={[styles.bubbleText, { color: item.isError ? theme.danger : textColor }]}>
             {item.content}
@@ -228,7 +228,13 @@ export default function ChatSheet({ visible, onClose }) {
                 </TouchableOpacity>
                 <View style={styles.headerTitles}>
                   <Text style={[styles.headerTitle, { color: theme.primaryText }]}>SmartRes AI</Text>
-                  <Text style={[styles.headerSub, { color: theme.primaryText, opacity: 0.85 }]}>
+                  <Text
+                    style={[
+                      styles.headerSub,
+                      styles.headerSubOpacity,
+                      { color: theme.primaryText },
+                    ]}
+                  >
                     {userName ? `မင်္ဂလာပါ, ${userName.split(' ')[0]} 👋` : 'RAG + MCP ready'}
                   </Text>
                 </View>
@@ -362,6 +368,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 2,
   },
+  headerSubOpacity: { opacity: 0.85 },
   headerSpacer: { width: 40 },
   loadingWrap: {
     flex: 1,
@@ -396,6 +403,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     maxWidth: '100%',
   },
+  userBubble: { borderWidth: 0 },
+  assistantBubble: { borderWidth: 1 },
   bubbleText: {
     fontSize: 15,
     lineHeight: 21,

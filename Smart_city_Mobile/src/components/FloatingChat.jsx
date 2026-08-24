@@ -1,30 +1,32 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
   Modal,
   FlatList,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Animated,
   Easing,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from './AppText';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
-import { useTheme } from '../context/ThemeContext';
 import useVoiceAssistant from '../hooks/useVoiceAssistant';
 import {
   sendFeedback as sendChatFeedback,
   sendMessage as sendAIMessage,
 } from '../services/chatService';
+import { containsMyanmarText, getMyanmarTextStyle } from '../theme/typography';
+import chatTheme from './chat/chatTheme';
 
 const CHAT_BOB_DISTANCE = 8;
 const CHAT_BOB_DURATION = 1800;
+const CHAT_HEADER_HEIGHT = 60;
 const THINKING_DOTS = [0, 1, 2];
 
 function ThinkingIndicator({ theme }) {
@@ -69,7 +71,14 @@ function ThinkingIndicator({ theme }) {
         ]}
       >
         <ActivityIndicator size="small" color={theme.primary} />
-        <Text style={[styles.thinkingText, { color: theme.subtext }]}>
+        <Text
+          style={[
+            styles.thinkingText,
+            styles.myanmarThinkingText,
+            getMyanmarTextStyle('အဖြေရှာနေပါတယ်', 'bold'),
+            { color: theme.subtext },
+          ]}
+        >
           အဖြေရှာနေပါတယ်
         </Text>
         <View style={styles.thinkingDots}>
@@ -107,9 +116,19 @@ function HistoryDrawer({
   onNewChat,
   onSelectSession,
   onDeleteSession,
+  topInset,
+  bottomInset,
 }) {
   return (
-    <View style={styles.historyLayer}>
+    <View
+      style={[
+        styles.historyLayer,
+        {
+          top: topInset + CHAT_HEADER_HEIGHT,
+          bottom: bottomInset,
+        },
+      ]}
+    >
       <TouchableOpacity
         activeOpacity={1}
         onPress={onClose}
@@ -140,11 +159,11 @@ function HistoryDrawer({
           activeOpacity={0.82}
           style={[
             styles.newChatButton,
-            { backgroundColor: theme.primaryBg, borderColor: theme.primary },
+            { backgroundColor: theme.primary, borderColor: theme.primarySoft },
           ]}
         >
-          <Ionicons name="create-outline" size={17} color={theme.primary} />
-          <Text style={[styles.newChatText, { color: theme.primary }]}>
+          <Ionicons name="create-outline" size={17} color={theme.primaryText} />
+          <Text style={[styles.newChatText, { color: theme.primaryText }]}>
             New chat
           </Text>
         </TouchableOpacity>
@@ -166,7 +185,7 @@ function HistoryDrawer({
                 style={[
                   styles.historyItem,
                   {
-                    backgroundColor: isActive ? theme.primaryBg : 'transparent',
+                    backgroundColor: isActive ? theme.elevated : theme.card,
                     borderColor: isActive ? theme.primary : theme.border,
                   },
                 ]}
@@ -176,6 +195,9 @@ function HistoryDrawer({
                     numberOfLines={1}
                     style={[
                       styles.historyItemTitle,
+                      containsMyanmarText(item.title) &&
+                        styles.myanmarHistoryItemTitle,
+                      getMyanmarTextStyle(item.title, 'bold'),
                       { color: isActive ? theme.primary : theme.text },
                     ]}
                   >
@@ -185,6 +207,9 @@ function HistoryDrawer({
                     numberOfLines={1}
                     style={[
                       styles.historyItemPreview,
+                      containsMyanmarText(preview) &&
+                        styles.myanmarHistoryItemPreview,
+                      getMyanmarTextStyle(preview),
                       { color: theme.subtext },
                     ]}
                   >
@@ -230,9 +255,15 @@ export default function FloatingChat() {
     selectSession,
     deleteSession,
   } = useChat();
-  const { theme } = useTheme();
+  const theme = chatTheme;
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const userName = (user?.fullname || user?.name || '').trim();
+  const firstName = userName.split(' ')[0];
+  const headerGreeting = userName ? `မင်္ဂလာပါ, ${firstName} 👋` : '';
+  const emptyGreeting = userName
+    ? `မင်္ဂလာပါ ${firstName} 👋\nကျွန်တော်က HomeMate ပါ!`
+    : 'မင်္ဂလာပါ 👋\nကျွန်တော်က HomeMate ပါ!';
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -548,20 +579,42 @@ export default function FloatingChat() {
         visible={isOpen}
         animationType="slide"
         transparent
+        statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={handleClose}
       >
         <KeyboardAvoidingView
           style={styles.modalContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <View style={[styles.chatBox, { backgroundColor: theme.surface }]}>
-            <View style={styles.header}>
+          <View
+            style={[
+              styles.chatBox,
+              {
+                backgroundColor: theme.background,
+                paddingTop: insets.top,
+                paddingBottom: insets.bottom,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.header,
+                {
+                  backgroundColor: theme.surface,
+                  borderBottomColor: theme.border,
+                },
+              ]}
+            >
               <TouchableOpacity
                 onPress={() => setHistoryOpen(true)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={styles.menuButton}
+                style={[
+                  styles.menuButton,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                ]}
               >
-                <Ionicons name="menu" size={24} color={theme.subtext} />
+                <Ionicons name="menu" size={22} color={theme.primary} />
               </TouchableOpacity>
 
               <View style={styles.headerTitleWrap}>
@@ -570,18 +623,27 @@ export default function FloatingChat() {
                 </Text>
                 {userName ? (
                   <Text
-                    style={[styles.headerSubText, { color: theme.subtext }]}
+                    style={[
+                      styles.headerSubText,
+                      styles.myanmarHeaderSubText,
+                      getMyanmarTextStyle(headerGreeting),
+                      { color: theme.subtext },
+                    ]}
                   >
-                    မင်္ဂလာပါ, {userName.split(' ')[0]} 👋
+                    {headerGreeting}
                   </Text>
                 ) : null}
               </View>
 
               <TouchableOpacity
                 onPress={handleClose}
-                style={styles.closeButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[
+                  styles.closeButton,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                ]}
               >
-                <Text style={{ color: theme.subtext }}>✕</Text>
+                <Ionicons name="close" size={20} color={theme.text} />
               </TouchableOpacity>
             </View>
 
@@ -594,6 +656,8 @@ export default function FloatingChat() {
                 onNewChat={handleNewChat}
                 onSelectSession={handleSelectSession}
                 onDeleteSession={handleDeleteSession}
+                topInset={insets.top}
+                bottomInset={insets.bottom}
               />
             )}
 
@@ -612,17 +676,22 @@ export default function FloatingChat() {
                     <View
                       style={[
                         styles.emptyIconWrap,
-                        { backgroundColor: theme.primaryBg },
+                        {
+                          backgroundColor: theme.elevated,
+                          borderColor: theme.primary,
+                        },
                       ]}
                     >
                       <Ionicons name="home" size={28} color={theme.primary} />
                     </View>
-                    <Text style={[styles.emptyGreeting, { color: theme.text }]}>
-                      {userName
-                        ? `မင်္ဂလာပါ ${
-                            userName.split(' ')[0]
-                          } 👋\nကျွန်တော်က HomeMate ပါ!`
-                        : 'မင်္ဂလာပါ 👋\nကျွန်တော်က HomeMate ပါ!'}
+                    <Text
+                      style={[
+                        styles.emptyGreeting,
+                        getMyanmarTextStyle(emptyGreeting, 'bold'),
+                        { color: theme.text },
+                      ]}
+                    >
+                      {emptyGreeting}
                     </Text>
                     <Text style={[styles.emptyHint, { color: theme.subtext }]}>
                       Bills • Maintenance • Helpers • Visitors • Parking • SOS •
@@ -645,8 +714,8 @@ export default function FloatingChat() {
                           style={[
                             styles.quickChip,
                             {
-                              backgroundColor: theme.primaryBg,
-                              borderColor: theme.primary,
+                              backgroundColor: theme.card,
+                              borderColor: theme.goldBorder,
                             },
                           ]}
                           activeOpacity={0.8}
@@ -654,6 +723,8 @@ export default function FloatingChat() {
                           <Text
                             style={[
                               styles.quickChipText,
+                              styles.myanmarQuickChipText,
+                              getMyanmarTextStyle(chip, 'bold'),
                               { color: theme.primary },
                             ]}
                           >
@@ -685,19 +756,35 @@ export default function FloatingChat() {
                     style={[
                       styles.messageRow,
                       isUser ? styles.userMsg : styles.botMsg,
+                      {
+                        backgroundColor: isUser
+                          ? theme.userBubble
+                          : theme.assistantBubble,
+                        borderColor: isUser ? theme.primarySoft : theme.border,
+                      },
                     ]}
                   >
                     <Text
-                      style={{
-                        color: isUser ? '#fff' : theme.text,
-                      }}
+                      style={[
+                        styles.messageText,
+                        containsMyanmarText(item.text) &&
+                          styles.myanmarMessageText,
+                        getMyanmarTextStyle(item.text),
+                        {
+                          color: isUser ? theme.primaryText : theme.text,
+                        },
+                      ]}
                     >
                       {item.text}
                     </Text>
 
                     {!isUser && sourceTitles.length > 0 && (
                       <Text
-                        style={[styles.messageMeta, { color: theme.subtext }]}
+                        style={[
+                          styles.messageMeta,
+                          getMyanmarTextStyle(sourceTitles.join(', ')),
+                          { color: theme.subtext },
+                        ]}
                       >
                         Knowledge: {sourceTitles.join(', ')}
                       </Text>
@@ -719,6 +806,7 @@ export default function FloatingChat() {
                           }
                           disabled={feedbackBusy}
                           accessibilityLabel="Mark answer helpful"
+                          hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
                           style={[
                             styles.feedbackButton,
                             {
@@ -753,6 +841,7 @@ export default function FloatingChat() {
                           onPress={() => openNegativeFeedback(item)}
                           disabled={feedbackBusy}
                           accessibilityLabel="Mark answer not helpful"
+                          hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
                           style={[
                             styles.feedbackButton,
                             {
@@ -794,7 +883,11 @@ export default function FloatingChat() {
 
                     {!isUser && item.feedbackError && (
                       <Text
-                        style={[styles.messageMeta, { color: theme.danger }]}
+                        style={[
+                          styles.messageMeta,
+                          getMyanmarTextStyle(item.feedbackError),
+                          { color: theme.danger },
+                        ]}
                       >
                         {item.feedbackError}
                       </Text>
@@ -815,7 +908,12 @@ export default function FloatingChat() {
                 placeholderTextColor={theme.subtext}
                 style={[
                   styles.input,
-                  { backgroundColor: theme.input, color: theme.text },
+                  getMyanmarTextStyle(text),
+                  {
+                    backgroundColor: theme.input,
+                    borderColor: theme.border,
+                    color: theme.text,
+                  },
                 ]}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -834,9 +932,10 @@ export default function FloatingChat() {
                 style={[
                   styles.micButton,
                   {
-                    backgroundColor: listening ? theme.primary : theme.border,
-                    opacity: sending || micUnavailable ? 0.65 : 1,
+                    backgroundColor: listening ? theme.primary : theme.card,
+                    borderColor: listening ? theme.primarySoft : theme.border,
                   },
+                  (sending || micUnavailable) && styles.controlDisabled,
                 ]}
               >
                 <Ionicons
@@ -853,14 +952,22 @@ export default function FloatingChat() {
                   styles.sendButton,
                   {
                     backgroundColor:
-                      sending || !text.trim() ? theme.border : theme.primary,
+                      sending || !text.trim() ? theme.card : theme.primary,
+                    borderColor:
+                      sending || !text.trim()
+                        ? theme.border
+                        : theme.primarySoft,
                   },
                 ]}
               >
                 {sending ? (
-                  <ActivityIndicator size="small" color={theme.primaryText} />
+                  <ActivityIndicator size="small" color={theme.primary} />
                 ) : (
-                  <Ionicons name="send" size={18} color={theme.primaryText} />
+                  <Ionicons
+                    name="send"
+                    size={18}
+                    color={text.trim() ? theme.primaryText : theme.primary}
+                  />
                 )}
               </TouchableOpacity>
             </View>
@@ -872,7 +979,8 @@ export default function FloatingChat() {
         visible={Boolean(feedbackTarget)}
         animationType="fade"
         transparent
-        onRequestClose={() => setFeedbackTarget(null)}>
+        onRequestClose={() => setFeedbackTarget(null)}
+      >
         <View style={styles.feedbackModalLayer}>
           <TouchableOpacity
             activeOpacity={1}
@@ -882,9 +990,15 @@ export default function FloatingChat() {
           <View
             style={[
               styles.feedbackModalCard,
-              { backgroundColor: theme.surface, borderColor: theme.border },
-            ]}>
-            <Text style={[styles.feedbackModalTitle, { color: theme.text }]}>How can this answer improve?</Text>
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.goldBorder,
+              },
+            ]}
+          >
+            <Text style={[styles.feedbackModalTitle, { color: theme.text }]}>
+              How can this answer improve?
+            </Text>
             <View style={styles.feedbackTypeRow}>
               {[
                 ['incorrect', 'Incorrect'],
@@ -898,12 +1012,22 @@ export default function FloatingChat() {
                     style={[
                       styles.feedbackTypeChip,
                       {
-                        backgroundColor: selected ? theme.primaryBg : theme.input,
+                        backgroundColor: selected
+                          ? theme.primaryBg
+                          : theme.input,
                         borderColor: selected ? theme.primary : theme.border,
                       },
                     ]}
-                    onPress={() => setFeedbackType(value)}>
-                    <Text style={[styles.feedbackTypeText, { color: selected ? theme.primary : theme.text }]}>{label}</Text>
+                    onPress={() => setFeedbackType(value)}
+                  >
+                    <Text
+                      style={[
+                        styles.feedbackTypeText,
+                        { color: selected ? theme.primary : theme.text },
+                      ]}
+                    >
+                      {label}
+                    </Text>
                   </TouchableOpacity>
                 );
               })}
@@ -917,23 +1041,39 @@ export default function FloatingChat() {
               maxLength={1000}
               style={[
                 styles.feedbackComment,
-                { backgroundColor: theme.input, borderColor: theme.border, color: theme.text },
+                {
+                  backgroundColor: theme.input,
+                  borderColor: theme.border,
+                  color: theme.text,
+                },
               ]}
             />
             <View style={styles.feedbackModalActions}>
               <TouchableOpacity
                 style={[styles.feedbackCancel, { borderColor: theme.border }]}
-                onPress={() => setFeedbackTarget(null)}>
+                onPress={() => setFeedbackTarget(null)}
+              >
                 <Text style={{ color: theme.subtext }}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.feedbackSubmit, { backgroundColor: theme.primary }]}
+                style={[
+                  styles.feedbackSubmit,
+                  { backgroundColor: theme.primary },
+                ]}
                 onPress={submitDetailedFeedback}
-                disabled={Boolean(feedbackSendingById[feedbackTarget?.id])}>
+                disabled={Boolean(feedbackSendingById[feedbackTarget?.id])}
+              >
                 {feedbackSendingById[feedbackTarget?.id] ? (
                   <ActivityIndicator size="small" color={theme.primaryText} />
                 ) : (
-                  <Text style={[styles.feedbackSubmitText, { color: theme.primaryText }]}>Send feedback</Text>
+                  <Text
+                    style={[
+                      styles.feedbackSubmitText,
+                      { color: theme.primaryText },
+                    ]}
+                  >
+                    Send feedback
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1000,6 +1140,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 9,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: chatTheme.primarySoft,
   },
   fabText: {
     fontSize: 24,
@@ -1007,40 +1149,53 @@ const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
+    backgroundColor: chatTheme.overlay,
   },
   chatBox: {
-    height: '55%',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    height: '100%',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     overflow: 'hidden',
+    shadowColor: chatTheme.shadow,
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 24,
   },
   header: {
-    height: 52,
+    height: CHAT_HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
   },
   menuButton: {
     position: 'absolute',
     left: 12,
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
   },
   headerText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   closeButton: {
     position: 'absolute',
     right: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   historyLayer: {
     position: 'absolute',
-    top: 52,
+    top: 0,
     right: 0,
     bottom: 0,
     left: 0,
@@ -1052,7 +1207,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: 'rgba(0,0,0,0.32)',
+    backgroundColor: chatTheme.overlay,
   },
   historyPanel: {
     width: 270,
@@ -1061,9 +1216,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 14,
     paddingBottom: 12,
+    shadowColor: chatTheme.shadow,
+    shadowOffset: { width: 8, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 18,
+    elevation: 24,
   },
   historyHeader: {
-    minHeight: 34,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1074,10 +1234,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   historyClose: {
-    width: 30,
-    height: 30,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: chatTheme.border,
+    backgroundColor: chatTheme.card,
   },
   newChatButton: {
     minHeight: 42,
@@ -1088,6 +1252,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     marginBottom: 10,
+    justifyContent: 'center',
   },
   newChatText: {
     fontSize: 14,
@@ -1115,10 +1280,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 20,
   },
+  myanmarHistoryItemTitle: {
+    lineHeight: 26,
+  },
   historyItemPreview: {
     marginTop: 2,
     fontSize: 12,
     lineHeight: 17,
+  },
+  myanmarHistoryItemPreview: {
+    lineHeight: 23,
   },
   historyDelete: {
     width: 28,
@@ -1130,11 +1301,13 @@ const styles = StyleSheet.create({
   messages: {
     flex: 1,
     padding: 12,
+    backgroundColor: chatTheme.background,
   },
   messageRow: {
     marginVertical: 6,
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 16,
+    borderWidth: 1,
     maxWidth: '85%',
   },
   thinkingRow: {
@@ -1155,6 +1328,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
   },
+  myanmarThinkingText: {
+    lineHeight: 24,
+  },
   thinkingDots: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1167,11 +1343,18 @@ const styles = StyleSheet.create({
   },
   userMsg: {
     alignSelf: 'flex-end',
-    backgroundColor: '#0B84FF',
+    borderBottomRightRadius: 4,
   },
   botMsg: {
     alignSelf: 'flex-start',
-    backgroundColor: 'transparent',
+    borderBottomLeftRadius: 4,
+  },
+  messageText: {
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  myanmarMessageText: {
+    lineHeight: 27,
   },
   messageMeta: {
     marginTop: 6,
@@ -1195,15 +1378,19 @@ const styles = StyleSheet.create({
   feedbackButtonDisabled: {
     opacity: 0.65,
   },
+  controlDisabled: {
+    opacity: 0.65,
+  },
   feedbackModalLayer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
+    backgroundColor: chatTheme.overlay,
   },
   feedbackModalScrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: chatTheme.overlay,
   },
   feedbackModalCard: {
     width: '100%',
@@ -1211,10 +1398,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 16,
     padding: 16,
+    shadowColor: chatTheme.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.45,
+    shadowRadius: 24,
+    elevation: 24,
   },
   feedbackModalTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12 },
-  feedbackTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  feedbackTypeChip: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 11, paddingVertical: 7 },
+  feedbackTypeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 12,
+  },
+  feedbackTypeChip: {
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
   feedbackTypeText: { fontSize: 12, fontWeight: '700' },
   feedbackComment: {
     minHeight: 90,
@@ -1224,18 +1426,38 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     textAlignVertical: 'top',
   },
-  feedbackModalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
-  feedbackCancel: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
-  feedbackSubmit: { minWidth: 120, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, alignItems: 'center' },
+  feedbackModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 14,
+  },
+  feedbackCancel: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  feedbackSubmit: {
+    minWidth: 120,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
   feedbackSubmitText: { fontSize: 13, fontWeight: '800' },
   inputRow: {
     flexDirection: 'row',
     padding: 12,
     alignItems: 'flex-end',
+    backgroundColor: chatTheme.surface,
+    borderTopWidth: 1,
+    borderTopColor: chatTheme.border,
   },
   input: {
     flex: 1,
-    borderRadius: 8,
+    borderRadius: 22,
+    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     minHeight: 44,
@@ -1251,12 +1473,14 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
   },
   sendButton: {
     marginLeft: 8,
     width: 52,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 22,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1269,6 +1493,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
     opacity: 0.85,
+  },
+  myanmarHeaderSubText: {
+    lineHeight: 21,
   },
   emptyState: {
     flex: 1,
@@ -1285,6 +1512,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    borderWidth: 1,
+    shadowColor: chatTheme.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 5,
   },
   emptyGreeting: {
     fontSize: 20,
@@ -1304,14 +1537,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quickChip: {
-    borderRadius: 20,
+    borderRadius: 14,
     borderWidth: 1,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   quickChipText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  myanmarQuickChipText: {
+    lineHeight: 24,
   },
 });

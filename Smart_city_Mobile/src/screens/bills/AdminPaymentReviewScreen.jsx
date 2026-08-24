@@ -1,18 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Image,
   Modal,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -24,7 +29,7 @@ import {
 } from '../../api/bills';
 import { getAccessToken } from '../../api/client';
 import { API_BASE_URL } from '../../config/api';
-import { useTheme } from '../../context/ThemeContext';
+import billTheme from './billTheme';
 
 const ACTIVE_STATUSES = new Set(['Pending', 'Under Review']);
 
@@ -42,7 +47,7 @@ function paymentCategory(item) {
 }
 
 export default function AdminPaymentReviewScreen({ navigation }) {
-  const { theme } = useTheme();
+  const theme = billTheme;
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -64,7 +69,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
       setItems(submissions);
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert(
+        showPrimeAlert(
           'Unable to load payments',
           err.message || 'Please try again.',
         );
@@ -145,7 +150,8 @@ export default function AdminPaymentReviewScreen({ navigation }) {
         // token. The credential is never added to the URL or persisted here.
         await fetchPaymentSubmissions({ limit: 1 });
         accessToken = await getAccessToken();
-        if (!accessToken) throw new Error('No refreshed access token available');
+        if (!accessToken)
+          throw new Error('No refreshed access token available');
         downloaded = await downloadOnce(accessToken, '-retry');
       }
 
@@ -216,7 +222,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
         action,
         ...extra,
       });
-      Alert.alert(
+      showPrimeAlert(
         action === 'approve'
           ? 'Payment approved'
           : action === 'under_review'
@@ -235,7 +241,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
       return response;
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Review failed', err.message || 'Please try again.');
+        showPrimeAlert('Review failed', err.message || 'Please try again.');
       }
       return null;
     } finally {
@@ -244,7 +250,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
   };
 
   const confirmApproval = () => {
-    Alert.alert(
+    showPrimeAlert(
       'Approve exact payment?',
       `Confirm Room ${
         selected?.room_id?.room_name || 'Unknown'
@@ -260,7 +266,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
 
   const submitReason = () => {
     if (!reason.trim()) {
-      Alert.alert('Reason required', 'Enter a clear reason for the resident.');
+      showPrimeAlert('Reason required', 'Enter a clear reason for the resident.');
       return;
     }
     performReview(reasonAction, { reason: reason.trim() });
@@ -273,7 +279,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
         onPress={() => openSubmission(item)}
         activeOpacity={0.82}
       >
-        <Card>
+        <Card style={styles.billCard}>
           <View style={styles.cardTop}>
             <View style={styles.flex}>
               <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -318,6 +324,7 @@ export default function AdminPaymentReviewScreen({ navigation }) {
       navigation={navigation}
       topBarVariant="stack"
       title="Payment Verification"
+      themeOverride={theme}
     >
       <FlatList
         data={sortedItems}
@@ -370,7 +377,12 @@ export default function AdminPaymentReviewScreen({ navigation }) {
         onRequestClose={closeSubmission}
       >
         <View style={styles.overlay}>
-          <View style={[styles.sheet, { backgroundColor: theme.card }]}>
+          <View
+            style={[
+              styles.sheet,
+              { backgroundColor: theme.card, borderColor: theme.primary },
+            ]}
+          >
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: theme.text }]}>
                 Verify payment
@@ -589,7 +601,12 @@ export default function AdminPaymentReviewScreen({ navigation }) {
         onRequestClose={() => setReasonAction(null)}
       >
         <View style={styles.centerOverlay}>
-          <View style={[styles.reasonCard, { backgroundColor: theme.card }]}>
+          <View
+            style={[
+              styles.reasonCard,
+              { backgroundColor: theme.card, borderColor: theme.primary },
+            ]}
+          >
             <Text style={[styles.sheetTitle, { color: theme.text }]}>
               {reasonAction === 'reject'
                 ? 'Reject payment'
@@ -642,23 +659,45 @@ export default function AdminPaymentReviewScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, paddingBottom: 36, flexGrow: 1 },
-  header: { marginBottom: 10 },
-  heading: { fontSize: 23, fontWeight: '800', marginBottom: 4 },
-  sub: { fontSize: 13, lineHeight: 19 },
-  cardTop: { flexDirection: 'row', gap: 10 },
+  list: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 40,
+    flexGrow: 1,
+  },
+  header: { marginBottom: 14 },
+  heading: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+    marginBottom: 6,
+  },
+  sub: { fontSize: 13, lineHeight: 20 },
+  billCard: {
+    backgroundColor: billTheme.card,
+    borderColor: billTheme.border,
+    borderRadius: 20,
+    padding: 17,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  cardTop: { flexDirection: 'row', gap: 11 },
   flex: { flex: 1 },
-  cardTitle: { fontSize: 15, fontWeight: '800' },
-  meta: { fontSize: 12, marginTop: 5 },
+  cardTitle: { fontSize: 15, fontWeight: '900', lineHeight: 20 },
+  meta: { fontSize: 12, lineHeight: 18, marginTop: 6 },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 9,
     alignSelf: 'flex-start',
   },
-  badgeText: { fontWeight: '800', fontSize: 11 },
-  cardAmount: { fontSize: 19, fontWeight: '900', marginTop: 12 },
-  tapHint: { fontSize: 12, fontWeight: '700', marginTop: 8 },
+  badgeText: { fontWeight: '900', fontSize: 11 },
+  cardAmount: { fontSize: 21, fontWeight: '900', marginTop: 14 },
+  tapHint: { fontSize: 12, fontWeight: '800', marginTop: 9 },
   empty: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -672,22 +711,32 @@ const styles = StyleSheet.create({
   },
   sheet: {
     maxHeight: '92%',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: 1,
+    borderBottomWidth: 0,
   },
   sheetHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 18,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
-  sheetTitle: { fontSize: 19, fontWeight: '900' },
-  sheetContent: { padding: 16, paddingTop: 0, paddingBottom: 36 },
+  sheetTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
+  sheetContent: {
+    paddingHorizontal: 20,
+    paddingTop: 0,
+    paddingBottom: 40,
+  },
   proofFrame: {
     width: '100%',
     height: 360,
     backgroundColor: '#000000',
-    borderRadius: 12,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#3E3527',
     overflow: 'hidden',
   },
   proof: {
@@ -706,45 +755,63 @@ const styles = StyleSheet.create({
   proofRetry: {
     minHeight: 38,
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 11,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   proofRetryText: { fontSize: 12, fontWeight: '800' },
-  verifyBox: { borderRadius: 11, padding: 14, marginTop: 12 },
-  verifyLabel: { fontSize: 12, fontWeight: '700' },
-  verifyAmount: { fontSize: 24, fontWeight: '900', marginTop: 4 },
+  verifyBox: {
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#3E3527',
+    padding: 16,
+    marginTop: 14,
+  },
+  verifyLabel: { fontSize: 12, fontWeight: '800' },
+  verifyAmount: {
+    fontSize: 27,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginTop: 5,
+  },
   verifyMeta: { fontSize: 12, marginTop: 6 },
-  categoryLine: { fontSize: 13, fontWeight: '900', marginTop: 7 },
+  categoryLine: { fontSize: 13, fontWeight: '900', marginTop: 8 },
   note: { fontSize: 13, lineHeight: 19, marginTop: 10 },
-  identityBox: { borderWidth: 1, borderRadius: 11, padding: 13, marginTop: 10 },
-  detailHeading: { fontSize: 14, fontWeight: '800', marginBottom: 6 },
-  detailLine: { fontSize: 14, fontWeight: '700' },
+  identityBox: {
+    borderWidth: 1,
+    borderRadius: 15,
+    padding: 14,
+    marginTop: 12,
+  },
+  detailHeading: { fontSize: 14, fontWeight: '900', marginBottom: 7 },
+  detailLine: { fontSize: 14, fontWeight: '800' },
   detailMeta: { fontSize: 12, lineHeight: 18 },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
   },
   breakdownAmount: { fontSize: 12, fontWeight: '800', textAlign: 'right' },
   totalRow: { marginTop: 5, paddingTop: 8 },
   reviewButton: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 13,
+    minHeight: 47,
     padding: 12,
     alignItems: 'center',
     marginTop: 14,
   },
-  reviewButtonText: { fontSize: 14, fontWeight: '800' },
+  reviewButtonText: { fontSize: 14, fontWeight: '900' },
   approveButton: {
     flexDirection: 'row',
     gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 11,
+    borderRadius: 14,
+    minHeight: 50,
     padding: 14,
     marginTop: 10,
   },
@@ -753,7 +820,8 @@ const styles = StyleSheet.create({
   secondaryAction: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 13,
+    minHeight: 46,
     padding: 11,
     alignItems: 'center',
   },
@@ -771,12 +839,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000AA',
     padding: 20,
   },
-  reasonCard: { width: '100%', borderRadius: 16, padding: 18 },
+  reasonCard: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 19,
+  },
   reasonInput: {
     minHeight: 100,
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 13,
+    padding: 13,
     textAlignVertical: 'top',
     marginTop: 14,
   },

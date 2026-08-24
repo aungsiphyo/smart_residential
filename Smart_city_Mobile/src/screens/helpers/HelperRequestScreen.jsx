@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
@@ -62,14 +61,14 @@ export default function HelperRequestScreen({ navigation, route }) {
         note: note.trim(),
       });
 
-      Alert.alert(
+      showPrimeAlert(
         'Request sent',
         'Admin staff will review your helper request.',
         [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert(
+        showPrimeAlert(
           'Request failed',
           err.message || 'Unable to request helper.',
         );

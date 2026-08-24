@@ -2,6 +2,8 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import BottomTabNavigator from './BottomTabNavigator';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import NotificationDetailScreen from '../screens/notifications/NotificationDetailScreen';
+import AnnouncementDetailScreen from '../screens/announcements/AnnouncementDetailScreen';
 import PreRegisterVisitorScreen from '../screens/visitors/PreRegisterVisitorScreen';
 import VisitorPassScreen from '../screens/visitors/VisitorPassScreen';
 import HelperRequestScreen from '../screens/helpers/HelperRequestScreen';
@@ -26,6 +28,14 @@ export default function MainStackNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Tabs" component={BottomTabNavigator} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen
+        name="NotificationDetail"
+        component={NotificationDetailScreen}
+      />
+      <Stack.Screen
+        name="AnnouncementDetail"
+        component={AnnouncementDetailScreen}
+      />
       <Stack.Screen name="PreRegister" component={PreRegisterVisitorScreen} />
       <Stack.Screen name="VisitorPass" component={VisitorPassScreen} />
       <Stack.Screen name="Helpers" component={HelperListScreen} />

@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import { useTheme } from '../../context/ThemeContext';
@@ -26,7 +25,7 @@ export default function ReportIssueScreen({ navigation }) {
 
   const onSubmit = async () => {
     if (!title.trim() || !location.trim() || !message.trim()) {
-      Alert.alert('Missing fields', 'Please enter title, location, and details.');
+      showPrimeAlert('Missing fields', 'Please enter title, location, and details.');
       return;
     }
 
@@ -39,14 +38,14 @@ export default function ReportIssueScreen({ navigation }) {
         type,
       });
 
-      Alert.alert('Report submitted', 'Admin staff will review your report.', [
+      showPrimeAlert('Report submitted', 'Admin staff will review your report.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
       setTitle('');
       setMessage('');
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Submit failed', err.message || 'Unable to submit report.');
+        showPrimeAlert('Submit failed', err.message || 'Unable to submit report.');
       }
     } finally {
       setSubmitting(false);

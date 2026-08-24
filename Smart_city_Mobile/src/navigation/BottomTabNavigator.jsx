@@ -1,124 +1,59 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import BottomNavBar from '../components/BottomNavBar';
 import HomeScreen from '../screens/home/HomeScreen';
 import BillsScreen from '../screens/bills/BillsScreen';
 import AnnouncementsScreen from '../screens/announcements/AnnouncementsScreen';
 import ProfileScreen from '../screens/profile/ProfileScreen';
 import SosScreen from '../screens/sos/SosScreen';
-import { useTheme } from '../context/ThemeContext';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_ICONS = {
-  Home: { active: 'home', inactive: 'home-outline' },
-  Bills: { active: 'receipt', inactive: 'receipt-outline' },
-  // Helpers tab removed from bottom navigation; kept on Home card
-  Announcements: { active: 'megaphone', inactive: 'megaphone-outline' },
-  Profile: { active: 'person', inactive: 'person-outline' },
-};
+function PrimeTabBar({ state, navigation }) {
+  const activeRoute = state.routes[state.index]?.name;
 
-function createTabBarIcon(routeName) {
-  return function TabBarIcon({ color, focused }) {
-    const icons = TAB_ICONS[routeName];
-    const name = focused ? icons.active : icons.inactive;
-    return <Ionicons name={name} size={22} color={color} />;
+  const onTabPress = name => {
+    const route = state.routes.find(item => item.name === name);
+    if (!route) return;
+
+    const focused = activeRoute === name;
+    const event = navigation.emit({
+      type: 'tabPress',
+      target: route.key,
+      canPreventDefault: true,
+    });
+
+    if (!focused && !event.defaultPrevented) {
+      navigation.navigate(route.name, route.params);
+    }
   };
-}
 
-const TAB_BAR_ICON_RENDERERS = {
-  Home: createTabBarIcon('Home'),
-  Bills: createTabBarIcon('Bills'),
-  SOS: () => null,
-  Announcements: createTabBarIcon('Announcements'),
-  Profile: createTabBarIcon('Profile'),
-};
+  const onTabLongPress = name => {
+    const route = state.routes.find(item => item.name === name);
+    if (!route) return;
+    navigation.emit({ type: 'tabLongPress', target: route.key });
+  };
 
-function SosTabButton({ onPress, accessibilityState }) {
-  const focused = accessibilityState?.selected;
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.85}
-      style={styles.sosWrapper}
-    >
-      <View style={[styles.sosFab, focused && styles.sosFabFocused]}>
-        <Ionicons name="alert" size={28} color="#FFFFFF" />
-      </View>
-    </TouchableOpacity>
+    <BottomNavBar
+      activeRoute={activeRoute}
+      onTabPress={onTabPress}
+      onTabLongPress={onTabLongPress}
+    />
   );
 }
 
 export default function BottomTabNavigator() {
-  const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
-
-  const androidPaddingBottom = Math.max(insets.bottom, 10);
-  const androidHeight = 58 + androidPaddingBottom;
-
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: theme.tabBar,
-          borderTopColor: theme.tabBarBorder,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : androidHeight,
-          paddingBottom: Platform.OS === 'ios' ? 28 : androidPaddingBottom,
-          paddingTop: 8,
-          elevation: 0,
-        },
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.inactive,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          marginTop: 2,
-        },
-        tabBarIcon: TAB_BAR_ICON_RENDERERS[route.name],
-      })}
+      screenOptions={{ headerShown: false }}
+      tabBar={PrimeTabBar}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Bills" component={BillsScreen} />
-      {/* Helpers tab removed - access via Home screen card */}
-      <Tab.Screen
-        name="SOS"
-        component={SosScreen}
-        options={{
-          tabBarLabel: () => null,
-          tabBarButton: SosTabButton,
-        }}
-      />
+      <Tab.Screen name="SOS" component={SosScreen} />
       <Tab.Screen name="Announcements" component={AnnouncementsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
-
-const styles = StyleSheet.create({
-  sosWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    top: -18,
-  },
-  sosFab: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#EF4444',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  sosFabFocused: {
-    transform: [{ scale: 1.05 }],
-  },
-});

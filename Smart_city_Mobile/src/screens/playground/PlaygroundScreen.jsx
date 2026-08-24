@@ -1,15 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
@@ -100,18 +99,18 @@ export default function PlaygroundScreen({ navigation }) {
   const submitRegistration = async () => {
     const age = Number(childAge);
     if (!childName.trim()) {
-      Alert.alert(
+      showPrimeAlert(
         'Child name required',
         'Enter the child name for this registration.',
       );
       return;
     }
     if (!Number.isInteger(age) || age < 1 || age > 17) {
-      Alert.alert('Invalid age', 'Child age must be between 1 and 17.');
+      showPrimeAlert('Invalid age', 'Child age must be between 1 and 17.');
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
-      Alert.alert('Invalid date', 'Use the YYYY-MM-DD date format.');
+      showPrimeAlert('Invalid date', 'Use the YYYY-MM-DD date format.');
       return;
     }
 
@@ -130,20 +129,20 @@ export default function PlaygroundScreen({ navigation }) {
       setNotes('');
       setDate(defaultDate());
       await loadData(true);
-      Alert.alert(
+      showPrimeAlert(
         'Registration submitted',
         'Admin can now review the playground booking.',
       );
     } catch (err) {
       if (!err.sessionExpired)
-        Alert.alert('Unable to register', err.message || 'Please try again.');
+        showPrimeAlert('Unable to register', err.message || 'Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const updateStatus = (registration, status) => {
-    Alert.alert(
+    showPrimeAlert(
       `${status} registration`,
       `Set ${registration.child_name}'s registration to ${status}?`,
       [
@@ -161,7 +160,7 @@ export default function PlaygroundScreen({ navigation }) {
               await loadData(true);
             } catch (err) {
               if (!err.sessionExpired) {
-                Alert.alert(
+                showPrimeAlert(
                   'Unable to update registration',
                   err.message || 'Please try again.',
                 );

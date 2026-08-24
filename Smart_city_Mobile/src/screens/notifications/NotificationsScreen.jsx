@@ -1,101 +1,65 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
-  Alert,
-  TextInput,
 } from 'react-native';
+import { AppText as Text } from '../../components/AppText';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
-import { useTheme } from '../../context/ThemeContext';
-import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { fetchNotifications } from '../../api/notifications';
 import {
-  fetchNotifications,
-  submitNotification,
-} from '../../api/notifications';
-
-const TYPE_ICONS = {
-  SOS: 'alert-circle-outline',
-  Emergency: 'warning-outline',
-  Announcement: 'megaphone-outline',
-  Helper: 'people-outline',
-  Visitor: 'person-outline',
-  Report: 'document-text-outline',
-  General: 'notifications-outline',
-};
-
-function formatTime(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.max(1, Math.floor(diffMs / 60000));
-  if (diffMin < 60) return `${diffMin}m ago`;
-
-  const diffHours = Math.floor(diffMin / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
+  containsMyanmarText,
+  getMyanmarTextStyle,
+} from '../../theme/typography';
+import notificationTheme from './notificationTheme';
+import {
+  mapNotification,
+  notificationAccent,
+  NOTIFICATION_TYPE_ICONS,
+} from './notificationPresentation';
 
 export default function NotificationsScreen({ navigation }) {
-  const { theme } = useTheme();
-  const { user } = useAuth();
+  const theme = notificationTheme;
   const { markAllRead, markOneRead, refreshUnreadCount } = useNotifications();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
-  const [replyText, setReplyText] = useState('');
+  const lastOpenRef = useRef({ id: null, at: 0 });
   const unreadCount = items.filter(item => !item.is_read).length;
 
-  const loadNotifications = useCallback(async (mode = 'initial') => {
-    const isRefresh = mode === true || mode === 'refresh';
-    const isSilent = mode === 'silent';
+  const loadNotifications = useCallback(
+    async (mode = 'initial') => {
+      const isRefresh = mode === true || mode === 'refresh';
+      const isSilent = mode === 'silent';
 
-    if (isRefresh) setRefreshing(true);
-    else if (!isSilent) setLoading(true);
-    if (!isSilent) setError(null);
+      if (isRefresh) setRefreshing(true);
+      else if (!isSilent) setLoading(true);
+      if (!isSilent) setError(null);
 
-    try {
-      const data = await fetchNotifications({ limit: 100 });
-      setItems(
-        data.map(item => ({
-          id: item._id,
-          title: item.title,
-          body: item.message,
-          type: item.type || 'General',
-          time: formatTime(item.created_at),
-          is_read: item.is_read,
-          data: item.data || {},
-          action_status: item.action_status || 'Pending',
-          actioned_at: item.actioned_at || null,
-        })),
-      );
-      await refreshUnreadCount();
-    } catch (err) {
-      if (err.sessionExpired) return;
-      if (!isSilent) setError(err.message || 'Failed to load notifications');
-    } finally {
-      if (!isSilent) {
-        setLoading(false);
-        setRefreshing(false);
+      try {
+        const data = await fetchNotifications({ limit: 100 });
+        setItems(data.map(mapNotification));
+        await refreshUnreadCount();
+      } catch (err) {
+        if (err.sessionExpired) return;
+        if (!isSilent) setError(err.message || 'Failed to load notifications');
+      } finally {
+        if (!isSilent) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
-    }
-  }, [refreshUnreadCount]);
+    },
+    [refreshUnreadCount],
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -116,77 +80,88 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const onOpenNotification = async item => {
-    setExpandedId(current => {
-      if (current !== item.id) setReplyText('');
-      return current === item.id ? null : item.id;
-    });
+    const now = Date.now();
+    if (
+      lastOpenRef.current.id === item.id &&
+      now - lastOpenRef.current.at < 750
+    ) {
+      return;
+    }
+    lastOpenRef.current = { id: item.id, at: now };
+
+    const openedNotification = item.is_read ? item : { ...item, is_read: true };
+
     if (!item.is_read) {
       setItems(current =>
         current.map(entry =>
           entry.id === item.id ? { ...entry, is_read: true } : entry,
         ),
       );
+    }
+
+    navigation.navigate('NotificationDetail', {
+      notificationId: item.id,
+      notification: openedNotification,
+    });
+
+    if (!item.is_read) {
       try {
         await markOneRead(item.id);
       } catch (err) {
-        if (!err.sessionExpired) setError(err.message || 'Unable to mark notification as read');
+        if (!err.sessionExpired) {
+          setError(err.message || 'Unable to mark notification as read');
+        }
         await refreshUnreadCount();
       }
     }
   };
 
-  const onSubmit = async (item, message) => {
-    try {
-      await submitNotification(item.id, { message: message || '' });
-      setItems(current =>
-        current.map(entry =>
-          entry.id === item.id
-            ? { ...entry, action_status: 'Submitted', is_read: true }
-            : entry,
-        ),
-      );
-      await refreshUnreadCount();
-      Alert.alert('Submitted', 'The resident has been notified.');
-    } catch (err) {
-      if (!err.sessionExpired) {
-        Alert.alert('Unable to submit', err.message || 'Please try again.');
-      }
-    }
-  };
-
   const renderItem = ({ item }) => {
-    const urgent = item.type === 'SOS' || item.type === 'Emergency';
-    const accentColor = urgent ? theme.danger : theme.primary;
+    const accentColor = notificationAccent(item.type, theme);
     const source = item.data?.source;
     const roomName = source?.room_name || item.data?.room_name;
     const residentName = source?.resident_name || item.data?.resident_name;
-    const expanded = expandedId === item.id;
+    const sourceText = roomName
+      ? `Room ${roomName}${residentName ? ` · ${residentName}` : ''}`
+      : null;
 
     return (
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => onOpenNotification(item)}
+        accessibilityRole="button"
+        accessibilityLabel={item.title}
+        accessibilityHint="Opens notification details"
       >
         <Card
-          style={
-            !item.is_read ? { borderColor: accentColor + '55' } : undefined
-          }
+          style={[
+            styles.notificationCard,
+            !item.is_read && styles.unreadCard,
+            !item.is_read && { borderColor: accentColor },
+          ]}
         >
           <View style={styles.row}>
             <View
               style={[styles.iconWrap, { backgroundColor: accentColor + '18' }]}
             >
               <Ionicons
-                name={TYPE_ICONS[item.type] || TYPE_ICONS.General}
-                size={20}
+                name={
+                  NOTIFICATION_TYPE_ICONS[item.type] ||
+                  NOTIFICATION_TYPE_ICONS.General
+                }
+                size={24}
                 color={accentColor}
               />
             </View>
             <View style={styles.content}>
               <View style={styles.titleRow}>
                 <Text
-                  style={[styles.title, { color: theme.text }]}
-                  numberOfLines={2}
+                  style={[
+                    styles.title,
+                    containsMyanmarText(item.title) && styles.myanmarTitle,
+                    getMyanmarTextStyle(item.title, 'bold'),
+                    { color: theme.text },
+                  ]}
                 >
                   {item.title}
                 </Text>
@@ -196,146 +171,50 @@ export default function NotificationsScreen({ navigation }) {
                   />
                 )}
               </View>
-              <Text style={[styles.body, { color: theme.subtext }]}>
+              <Text
+                style={[
+                  styles.body,
+                  containsMyanmarText(item.body) && styles.myanmarBody,
+                  getMyanmarTextStyle(item.body),
+                  { color: theme.subtext },
+                ]}
+              >
                 {item.body}
               </Text>
-              {roomName ? (
+              {sourceText ? (
                 <View style={styles.sourceLine}>
                   <Ionicons name="home-outline" size={13} color={accentColor} />
-                  <Text style={[styles.sourceText, { color: accentColor }]}>
-                    Room {roomName}
-                    {residentName ? ` · ${residentName}` : ''}
-                  </Text>
-                </View>
-              ) : null}
-              {expanded && source ? (
-                <View
-                  style={[
-                    styles.detailsBox,
-                    { backgroundColor: theme.input, borderColor: theme.border },
-                  ]}
-                >
-                  {source.request_type ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Request: {source.request_type}
-                    </Text>
-                  ) : null}
-                  {source.report_type ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Report: {source.report_type}
-                    </Text>
-                  ) : null}
-                  {source.location ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Location: {source.location}
-                    </Text>
-                  ) : null}
-                  {source.preferred_gender ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Preferred: {source.preferred_gender}
-                    </Text>
-                  ) : null}
-                  {source.helper_name ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Helper: {source.helper_name}
-                    </Text>
-                  ) : null}
-                  {source.resident_phone ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Phone: {source.resident_phone}
-                    </Text>
-                  ) : null}
-                  {source.note || source.details ? (
-                    <Text
-                      style={[styles.detailMessage, { color: theme.subtext }]}
-                    >
-                      {source.note || source.details}
-                    </Text>
-                  ) : null}
-                  {source.status ? (
-                    <Text style={[styles.detailText, { color: theme.text }]}>
-                      Status: {source.status}
-                    </Text>
-                  ) : null}
-                </View>
-              ) : null}
-              {['Admin', 'Staff'].includes(user?.role) &&
-              source &&
-              ['helper_request', 'resident_report', 'sos', 'emergency'].includes(
-                source.kind || item.type?.toLowerCase(),
-              ) ? (
-                <View>
-                  {item.action_status !== 'Submitted' && expanded && (
-                    <TextInput
-                      style={[
-                        styles.input,
-                        {
-                          color: theme.text,
-                          backgroundColor: theme.input,
-                          borderColor: theme.border,
-                        },
-                      ]}
-                      placeholder="Enter note or reply to resident"
-                      placeholderTextColor={theme.inactive}
-                      value={replyText}
-                      onChangeText={setReplyText}
-                      multiline
-                    />
-                  )}
-                  <TouchableOpacity
+                  <Text
                     style={[
-                      styles.submitBtn,
-                      {
-                        backgroundColor:
-                          item.action_status === 'Submitted'
-                            ? theme.successBg
-                            : theme.primary,
-                      },
+                      styles.sourceText,
+                      containsMyanmarText(sourceText) &&
+                        styles.myanmarSourceText,
+                      getMyanmarTextStyle(sourceText, 'bold'),
+                      { color: accentColor },
                     ]}
-                    disabled={item.action_status === 'Submitted'}
-                    onPress={event => {
-                      event.stopPropagation?.();
-                      onSubmit(item, replyText);
-                    }}>
-                    <Ionicons
-                      name={
-                        item.action_status === 'Submitted'
-                          ? 'checkmark-done-outline'
-                          : 'send-outline'
-                      }
-                      size={15}
-                      color={
-                        item.action_status === 'Submitted'
-                          ? theme.success
-                          : theme.primaryText
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.submitText,
-                        {
-                          color:
-                            item.action_status === 'Submitted'
-                              ? theme.success
-                              : theme.primaryText,
-                        },
-                      ]}>
-                      {item.action_status === 'Submitted'
-                        ? 'Submitted'
-                        : 'Submit & notify resident'}
-                    </Text>
-                  </TouchableOpacity>
+                  >
+                    {sourceText}
+                  </Text>
                 </View>
               ) : null}
               <View style={styles.footerRow}>
                 <Text style={[styles.time, { color: theme.inactive }]}>
                   {item.time}
                 </Text>
-                {source ? (
-                  <Text style={[styles.detailsHint, { color: theme.primary }]}>
-                    {expanded ? 'Hide details' : 'View details'}
-                  </Text>
-                ) : null}
+                <View style={styles.detailLink}>
+                  {source ? (
+                    <Text
+                      style={[styles.detailsHint, { color: theme.primary }]}
+                    >
+                      View details
+                    </Text>
+                  ) : null}
+                  <Ionicons
+                    name="chevron-forward"
+                    size={18}
+                    color={theme.icon}
+                  />
+                </View>
               </View>
             </View>
           </View>
@@ -350,6 +229,7 @@ export default function NotificationsScreen({ navigation }) {
       topBarVariant="stack"
       title="Notifications"
       showBottomNav
+      themeOverride={theme}
     >
       <FlatList
         data={items}
@@ -372,7 +252,7 @@ export default function NotificationsScreen({ navigation }) {
             </View>
             {unreadCount > 0 ? (
               <TouchableOpacity
-                style={[styles.markBtn, { borderColor: theme.border }]}
+                style={[styles.markBtn, { borderColor: theme.goldBorder }]}
                 onPress={onMarkAllRead}
               >
                 <Ionicons
@@ -399,7 +279,14 @@ export default function NotificationsScreen({ navigation }) {
                 size={36}
                 color={theme.danger}
               />
-              <Text style={[styles.emptyText, { color: theme.text }]}>
+              <Text
+                style={[
+                  styles.emptyText,
+                  containsMyanmarText(error) && styles.myanmarEmptyText,
+                  getMyanmarTextStyle(error),
+                  { color: theme.text },
+                ]}
+              >
                 {error}
               </Text>
               <TouchableOpacity
@@ -431,104 +318,115 @@ export default function NotificationsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  list: { padding: 16, paddingBottom: 32, flexGrow: 1 },
+  list: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 36,
+    flexGrow: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    gap: 12,
+    backgroundColor: notificationTheme.card,
+    borderWidth: 1,
+    borderColor: notificationTheme.border,
+    borderRadius: 19,
+    padding: 17,
+    marginBottom: 18,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.26,
+    shadowRadius: 14,
+    elevation: 4,
   },
   heading: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.3,
-    marginBottom: 4,
+    fontSize: 25,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    marginBottom: 5,
   },
-  sub: { fontSize: 14 },
+  sub: { fontSize: 14, fontWeight: '600' },
   markBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  markText: { fontSize: 13, fontWeight: '700' },
-  row: { flexDirection: 'row' },
-  iconWrap: {
-    width: 42,
-    height: 42,
     borderRadius: 12,
+    minHeight: 42,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  markText: { fontSize: 13, fontWeight: '900' },
+  notificationCard: {
+    backgroundColor: notificationTheme.card,
+    borderColor: notificationTheme.border,
+    borderRadius: 20,
+    padding: 17,
+    marginBottom: 13,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  unreadCard: { borderLeftWidth: 3 },
+  row: { flexDirection: 'row', alignItems: 'flex-start' },
+  iconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#3E3527',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 13,
   },
   content: { flex: 1 },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 8,
+    marginBottom: 5,
   },
-  title: { fontSize: 15, fontWeight: '700', flex: 1 },
-  unreadDot: { width: 8, height: 8, borderRadius: 4 },
-  body: { fontSize: 14, lineHeight: 20, marginBottom: 6 },
+  title: { fontSize: 16, fontWeight: '900', lineHeight: 21, flex: 1 },
+  myanmarTitle: { lineHeight: 29 },
+  unreadDot: { width: 9, height: 9, borderRadius: 5 },
+  body: { fontSize: 14, lineHeight: 21, marginBottom: 8 },
+  myanmarBody: { lineHeight: 26 },
   sourceLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginBottom: 7,
-  },
-  sourceText: { flex: 1, fontSize: 12, fontWeight: '700' },
-  detailsBox: {
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    gap: 4,
     marginBottom: 8,
   },
-  detailText: { fontSize: 13 },
-  detailMessage: { fontSize: 13, lineHeight: 18, marginVertical: 3 },
-  submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    borderRadius: 9,
-    paddingVertical: 9,
-    marginBottom: 8,
-  },
-  submitText: { fontSize: 12, fontWeight: '800' },
+  sourceText: { flex: 1, fontSize: 12, fontWeight: '800' },
+  myanmarSourceText: { lineHeight: 22 },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 22,
   },
-  detailsHint: { fontSize: 11, fontWeight: '700' },
-  time: { fontSize: 12 },
+  detailLink: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  detailsHint: { fontSize: 11, fontWeight: '800' },
+  time: { fontSize: 12, fontWeight: '600' },
   centered: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 10,
+    paddingVertical: 52,
+    gap: 12,
   },
-  emptyText: { fontSize: 15, textAlign: 'center' },
+  emptyText: { fontSize: 15, lineHeight: 21, textAlign: 'center' },
+  myanmarEmptyText: { lineHeight: 27 },
   retryBtn: {
     marginTop: 4,
     paddingHorizontal: 18,
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 12,
   },
-  retryText: { fontSize: 14, fontWeight: '600' },
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    marginBottom: 8,
-    minHeight: 40,
-    textAlignVertical: 'top',
-  },
+  retryText: { fontSize: 14, fontWeight: '800' },
 });

@@ -4,11 +4,11 @@ import {
   FlatList,
   RefreshControl,
   StyleSheet,
-  Text,
   View,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
+import { AppText as Text } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
@@ -85,10 +85,10 @@ export default function AdminReportsScreen({ navigation }) {
       setReports(current =>
         current.map(report => (report._id === item._id ? updated : report)),
       );
-      Alert.alert('Submitted', 'The resident has been notified.');
+      showPrimeAlert('Submitted', 'The resident has been notified.');
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Unable to submit', err.message || 'Please try again.');
+        showPrimeAlert('Unable to submit', err.message || 'Please try again.');
       }
     } finally {
       setSubmittingId(null);

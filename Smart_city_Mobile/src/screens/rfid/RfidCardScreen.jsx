@@ -1,15 +1,14 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
@@ -82,31 +81,31 @@ function ResidentRfidCardScreen({ navigation }) {
   const submitPayment = () => {
     const value = Number(paymentAmount);
     if (!selectedMerchant?._id) {
-      Alert.alert(
+      showPrimeAlert(
         'Choose a shop',
         'Select the Prime City shop you are paying.',
       );
       return;
     }
     if (!activeCard || wallet?.status !== 'Active') {
-      Alert.alert(
+      showPrimeAlert(
         'Wallet unavailable',
         'An active RFID card and wallet are required.',
       );
       return;
     }
     if (!Number.isInteger(value) || value <= 0) {
-      Alert.alert('Invalid amount', 'Enter a positive whole MMK amount.');
+      showPrimeAlert('Invalid amount', 'Enter a positive whole MMK amount.');
       return;
     }
     if (value > Number(wallet?.balance_mmk || 0)) {
-      Alert.alert(
+      showPrimeAlert(
         'Insufficient balance',
         'Your wallet does not have enough credit.',
       );
       return;
     }
-    Alert.alert(
+    showPrimeAlert(
       'Confirm shop payment',
       `Pay ${formatAmount(value)} to ${
         selectedMerchant.name
@@ -126,7 +125,7 @@ function ResidentRfidCardScreen({ navigation }) {
                   .toString(36)
                   .slice(2, 12)}`,
               });
-              Alert.alert(
+              showPrimeAlert(
                 'Payment successful',
                 `${formatAmount(value)} paid to ${
                   selectedMerchant.name
@@ -138,7 +137,7 @@ function ResidentRfidCardScreen({ navigation }) {
               await loadWallet(true);
             } catch (err) {
               if (!err.sessionExpired) {
-                Alert.alert(
+                showPrimeAlert(
                   'Payment failed',
                   err.message || 'Please try again.',
                 );
@@ -544,25 +543,25 @@ function AdminRfidWalletScreen({ navigation }) {
   const submitCredit = async () => {
     const creditAmount = Number(amount);
     if (!selectedResident?._id) {
-      Alert.alert(
+      showPrimeAlert(
         'Select resident',
         'Choose one resident for this wallet credit.',
       );
       return;
     }
     if (!Number.isInteger(creditAmount) || creditAmount <= 0) {
-      Alert.alert('Invalid amount', 'Enter a positive whole MMK amount.');
+      showPrimeAlert('Invalid amount', 'Enter a positive whole MMK amount.');
       return;
     }
     if (!description.trim()) {
-      Alert.alert(
+      showPrimeAlert(
         'Description required',
         'Enter the reason for this wallet credit.',
       );
       return;
     }
 
-    Alert.alert(
+    showPrimeAlert(
       'Confirm RFID wallet credit',
       `Add ${formatAmount(creditAmount)} to ${selectedResident.fullname}?`,
       [
@@ -577,7 +576,7 @@ function AdminRfidWalletScreen({ navigation }) {
                 amount_mmk: creditAmount,
                 description: description.trim(),
               });
-              Alert.alert(
+              showPrimeAlert(
                 'Wallet updated',
                 `New balance: ${formatAmount(result.balance_mmk)}`,
               );
@@ -585,7 +584,7 @@ function AdminRfidWalletScreen({ navigation }) {
               setDescription('RFID wallet top-up');
             } catch (err) {
               if (!err.sessionExpired) {
-                Alert.alert(
+                showPrimeAlert(
                   'Unable to add credit',
                   err.message || 'Please try again.',
                 );
@@ -601,7 +600,7 @@ function AdminRfidWalletScreen({ navigation }) {
 
   const submitMerchant = async () => {
     if (!merchantName.trim() || !merchantLocation.trim()) {
-      Alert.alert(
+      showPrimeAlert(
         'Shop details required',
         'Enter the shop name and Prime City location.',
       );
@@ -616,13 +615,13 @@ function AdminRfidWalletScreen({ navigation }) {
       setMerchantName('');
       setMerchantLocation('');
       await loadResidents();
-      Alert.alert(
+      showPrimeAlert(
         'Shop created',
         'Residents can now select this approved Prime City shop.',
       );
     } catch (err) {
       if (!err.sessionExpired)
-        Alert.alert('Unable to create shop', err.message);
+        showPrimeAlert('Unable to create shop', err.message);
     } finally {
       setCreatingMerchant(false);
     }
@@ -636,20 +635,20 @@ function AdminRfidWalletScreen({ navigation }) {
       value <= 0 ||
       !settlementReference.trim()
     ) {
-      Alert.alert(
+      showPrimeAlert(
         'Settlement details required',
         'Choose a shop, enter a whole MMK amount, and add the external settlement reference.',
       );
       return;
     }
     if (value > Number(settlementMerchant.wallet_balance_mmk || 0)) {
-      Alert.alert(
+      showPrimeAlert(
         'Invalid amount',
         'Settlement cannot exceed the shop wallet balance.',
       );
       return;
     }
-    Alert.alert(
+    showPrimeAlert(
       'Confirm settlement',
       `Record ${formatAmount(value)} settled to ${settlementMerchant.name}?`,
       [
@@ -667,13 +666,13 @@ function AdminRfidWalletScreen({ navigation }) {
               setSettlementReference('');
               setSettlementMerchant(null);
               await loadResidents();
-              Alert.alert(
+              showPrimeAlert(
                 'Settlement recorded',
                 'The merchant ledger and Admin audit log were updated.',
               );
             } catch (err) {
               if (!err.sessionExpired)
-                Alert.alert('Settlement failed', err.message);
+                showPrimeAlert('Settlement failed', err.message);
             } finally {
               setSettling(false);
             }
@@ -691,7 +690,7 @@ function AdminRfidWalletScreen({ navigation }) {
       setMerchantLedger(await fetchPrimeCityMerchantLedger(merchant._id));
     } catch (err) {
       if (!err.sessionExpired)
-        Alert.alert('Unable to load ledger', err.message);
+        showPrimeAlert('Unable to load ledger', err.message);
     } finally {
       setLedgerLoading(false);
     }
@@ -751,7 +750,7 @@ function AdminRfidWalletScreen({ navigation }) {
           ) : (
             <ScrollView 
               style={styles.residentList}
-              contentContainerStyle={{ gap: 7 }}
+              contentContainerStyle={styles.residentListContent}
               nestedScrollEnabled={true}
             >
               {filteredResidents.slice(0, 50).map(resident => {
@@ -1159,6 +1158,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   residentList: { maxHeight: 310 },
+  residentListContent: { gap: 7 },
   residentOption: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,18 +1,17 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
@@ -180,7 +179,7 @@ export default function AdminAiReviewScreen({ navigation }) {
 
   const approve = async () => {
     if (!title.trim() || !approvedContent.trim()) {
-      Alert.alert(
+      showPrimeAlert(
         'Missing knowledge content',
         'Add a reusable title and approved answer before publishing to RAG.',
       );
@@ -202,11 +201,11 @@ export default function AdminAiReviewScreen({ navigation }) {
         reviewNote: reviewNote.trim(),
       });
       setSelected(null);
-      Alert.alert('Published to RAG', 'The reviewed knowledge is now active.');
+      showPrimeAlert('Published to RAG', 'The reviewed knowledge is now active.');
       await load(true);
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Unable to approve', err.message || 'Please try again.');
+        showPrimeAlert('Unable to approve', err.message || 'Please try again.');
       }
     } finally {
       setSubmitting(false);
@@ -214,7 +213,7 @@ export default function AdminAiReviewScreen({ navigation }) {
   };
 
   const reject = item => {
-    Alert.alert(
+    showPrimeAlert(
       'Reject feedback?',
       'This feedback will not be added to RAG knowledge.',
       [
@@ -231,7 +230,7 @@ export default function AdminAiReviewScreen({ navigation }) {
               await load(true);
             } catch (err) {
               if (!err.sessionExpired) {
-                Alert.alert(
+                showPrimeAlert(
                   'Unable to reject',
                   err.message || 'Please try again.',
                 );
@@ -244,7 +243,7 @@ export default function AdminAiReviewScreen({ navigation }) {
   };
 
   const deactivateKnowledge = item => {
-    Alert.alert(
+    showPrimeAlert(
       'Remove from active RAG?',
       'The item stays in the database for audit history but will no longer be used in AI answers.',
       [
@@ -258,7 +257,7 @@ export default function AdminAiReviewScreen({ navigation }) {
               await load(true);
             } catch (err) {
               if (!err.sessionExpired) {
-                Alert.alert(
+                showPrimeAlert(
                   'Unable to deactivate',
                   err.message || 'Please try again.',
                 );
