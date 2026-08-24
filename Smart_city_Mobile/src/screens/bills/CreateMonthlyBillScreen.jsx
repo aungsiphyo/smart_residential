@@ -1,14 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Card from '../../components/Card';
@@ -18,7 +17,7 @@ import {
   createMonthlyBillsForAll,
   fetchBillingRooms,
 } from '../../api/bills';
-import { useTheme } from '../../context/ThemeContext';
+import billTheme from './billTheme';
 
 const ROOM_PRICES = {
   Business: 500000000,
@@ -67,7 +66,7 @@ function roomFinance(room) {
 }
 
 export default function CreateMonthlyBillScreen({ navigation }) {
-  const { theme } = useTheme();
+  const theme = billTheme;
   const now = new Date();
   const [target, setTarget] = useState('one');
   const [rooms, setRooms] = useState([]);
@@ -89,7 +88,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       setRooms(await fetchBillingRooms());
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Unable to load rooms', err.message || 'Please try again.');
+        showPrimeAlert('Unable to load rooms', err.message || 'Please try again.');
       }
     } finally {
       setLoading(false);
@@ -137,8 +136,9 @@ export default function CreateMonthlyBillScreen({ navigation }) {
     );
   }, [commonTotal, rooms, selectedFinance, target]);
   const activeCategoryKeys = useMemo(() => {
-    const keys = COMMON_COMPONENTS.filter(([key]) => money(components[key]) > 0)
-      .map(([key]) => key);
+    const keys = COMMON_COMPONENTS.filter(
+      ([key]) => money(components[key]) > 0,
+    ).map(([key]) => key);
     const hasInstallment =
       target === 'one'
         ? money(selectedFinance?.installment) > 0
@@ -148,14 +148,14 @@ export default function CreateMonthlyBillScreen({ navigation }) {
 
   const submit = async () => {
     if (target === 'one' && !selectedRoom) {
-      Alert.alert(
+      showPrimeAlert(
         'Select room',
         'Choose the resident room for this monthly bill.',
       );
       return;
     }
     if (target === 'all' && !rooms.length) {
-      Alert.alert(
+      showPrimeAlert(
         'No residents',
         'There are no occupied resident rooms to bill.',
       );
@@ -165,11 +165,11 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       !(Number(month) >= 1 && Number(month) <= 12) ||
       !Number.isInteger(Number(year))
     ) {
-      Alert.alert('Invalid billing period', 'Enter a valid month and year.');
+      showPrimeAlert('Invalid billing period', 'Enter a valid month and year.');
       return;
     }
     if (!(estimatedTotal > 0)) {
-      Alert.alert(
+      showPrimeAlert(
         'Invalid total',
         'At least one bill component must be greater than zero.',
       );
@@ -177,11 +177,13 @@ export default function CreateMonthlyBillScreen({ navigation }) {
     }
     const invalidDueDate = activeCategoryKeys.find(key => {
       const value = dueDates[key];
-      return !/^\d{4}-\d{2}-\d{2}$/.test(value || '') ||
-        Number.isNaN(new Date(`${value}T23:59:59+06:30`).getTime());
+      return (
+        !/^\d{4}-\d{2}-\d{2}$/.test(value || '') ||
+        Number.isNaN(new Date(`${value}T23:59:59+06:30`).getTime())
+      );
     });
     if (invalidDueDate) {
-      Alert.alert(
+      showPrimeAlert(
         'Invalid due date',
         'Enter every selected category due date as YYYY-MM-DD.',
       );
@@ -206,7 +208,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
     try {
       if (target === 'all') {
         const response = await createMonthlyBillsForAll(payload);
-        Alert.alert(
+        showPrimeAlert(
           'Category bills created',
           `${response.created_count || 0} separate category bills created. ${
             response.skipped_count || 0
@@ -218,9 +220,11 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           ...payload,
           room_id: selectedRoom._id,
         });
-        Alert.alert(
+        showPrimeAlert(
           'Category bills created',
-          `${response.created_count || response.bills?.length || 0} separate bills were created for Room ${
+          `${
+            response.created_count || response.bills?.length || 0
+          } separate bills were created for Room ${
             selectedRoom.room_name
           }. Combined value: ${formatMoney(estimatedTotal)}.`,
           [{ text: 'OK', onPress: () => navigation.goBack() }],
@@ -228,7 +232,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       }
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert(
+        showPrimeAlert(
           'Unable to create bill',
           err.message || 'Please try again.',
         );
@@ -243,12 +247,13 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       navigation={navigation}
       topBarVariant="stack"
       title="Create Monthly Bill"
+      themeOverride={theme}
     >
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
-        <Card>
+        <Card style={styles.billCard}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Bill recipients
           </Text>
@@ -379,7 +384,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
         </Card>
 
         {target === 'one' && selectedFinance ? (
-          <Card>
+          <Card style={styles.billCard}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Room purchase plan
             </Text>
@@ -401,7 +406,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           </Card>
         ) : null}
 
-        <Card>
+        <Card style={styles.billCard}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Billing period
           </Text>
@@ -476,7 +481,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           />
         </Card>
 
-        <Card>
+        <Card style={[styles.billCard, styles.categoriesCard]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Separate bill categories
           </Text>
@@ -595,7 +600,7 @@ export default function CreateMonthlyBillScreen({ navigation }) {
                     activeCategoryKeys.length === 1 ? '' : 's'
                   }`}
             </Text>
-            <Text style={[styles.total, { color: theme.text }]}>
+            <Text style={[styles.total, { color: theme.primary }]}>
               {formatMoney(estimatedTotal)}
             </Text>
           </View>
@@ -627,9 +632,29 @@ export default function CreateMonthlyBillScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 44, gap: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
-  targetRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  container: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 48,
+    gap: 14,
+  },
+  billCard: {
+    backgroundColor: billTheme.card,
+    borderColor: billTheme.border,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  categoriesCard: {
+    borderColor: '#3E3527',
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 16 },
+  targetRow: { flexDirection: 'row', gap: 9, marginBottom: 14 },
   targetButton: {
     flex: 1,
     flexDirection: 'row',
@@ -637,94 +662,118 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 13,
+    minHeight: 48,
+    paddingHorizontal: 8,
     paddingVertical: 12,
   },
-  targetText: { fontSize: 12, fontWeight: '800' },
+  targetText: { fontSize: 12, fontWeight: '900' },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 11,
-    paddingHorizontal: 11,
+    borderRadius: 13,
+    minHeight: 48,
+    paddingHorizontal: 13,
   },
-  searchInput: { flex: 1, paddingVertical: 11 },
+  searchInput: { flex: 1, paddingVertical: 12 },
   loader: { margin: 20 },
-  roomList: { maxHeight: 290, marginTop: 10 },
+  roomList: { maxHeight: 300, marginTop: 12 },
   roomRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 11,
-    marginBottom: 7,
+    borderRadius: 13,
+    padding: 12,
+    marginBottom: 8,
   },
   flex: { flex: 1 },
-  roomName: { fontSize: 14, fontWeight: '700' },
-  roomResident: { fontSize: 12, marginTop: 2 },
-  infoBox: { flexDirection: 'row', gap: 9, padding: 12, borderRadius: 10 },
-  infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  roomName: { fontSize: 14, fontWeight: '800' },
+  roomResident: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+  infoBox: {
+    flexDirection: 'row',
+    gap: 9,
+    padding: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#252C30',
+  },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 19 },
   financeRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
-    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#252C30',
+    paddingBottom: 11,
+    marginBottom: 11,
   },
-  financeLabel: { flex: 1, fontSize: 12 },
-  financeValue: { fontSize: 12, fontWeight: '800', textAlign: 'right' },
+  financeLabel: { flex: 1, fontSize: 12, lineHeight: 18 },
+  financeValue: { fontSize: 12, fontWeight: '900', textAlign: 'right' },
   twoColumns: { flexDirection: 'row', gap: 10 },
-  label: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 8 },
+  label: { fontSize: 12, fontWeight: '700', marginBottom: 7, marginTop: 9 },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+    borderRadius: 13,
+    minHeight: 48,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
   },
   deadlineBox: {
     flexDirection: 'row',
     gap: 9,
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 12,
+    padding: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#5B3C08',
+    marginTop: 14,
   },
-  deadlineTitle: { fontSize: 13, fontWeight: '800' },
-  deadlineText: { fontSize: 11, lineHeight: 17, marginTop: 2 },
+  deadlineTitle: { fontSize: 13, fontWeight: '900' },
+  deadlineText: { fontSize: 11, lineHeight: 18, marginTop: 3 },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  categoryBlock: { marginBottom: 12 },
-  componentLabel: { flex: 1, fontSize: 14, fontWeight: '600' },
+  categoryBlock: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#252C30',
+    paddingBottom: 13,
+    marginBottom: 13,
+  },
+  componentLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
   amountInput: {
     width: 130,
     borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 11,
-    paddingVertical: 9,
+    borderRadius: 12,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     textAlign: 'right',
   },
   automaticRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9,
-    padding: 11,
-    marginBottom: 9,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#252C30',
+    padding: 13,
+    marginBottom: 11,
   },
   autoHint: { fontSize: 11, marginTop: 2 },
   dueInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 7,
+    marginTop: 9,
   },
-  dueLabel: { flex: 1, fontSize: 11, fontWeight: '600' },
+  dueLabel: { flex: 1, fontSize: 11, fontWeight: '700' },
   dueInput: {
     width: 150,
     borderWidth: 1,
-    borderRadius: 9,
+    borderRadius: 11,
     paddingHorizontal: 10,
     paddingVertical: 8,
     fontSize: 12,
@@ -732,21 +781,32 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     borderTopWidth: 1,
-    marginTop: 8,
-    paddingTop: 14,
+    marginTop: 10,
+    paddingTop: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
   },
-  totalLabel: { flex: 1, fontSize: 13, fontWeight: '700' },
-  total: { fontSize: 17, fontWeight: '900', textAlign: 'right' },
+  totalLabel: { flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
+  total: {
+    fontSize: 18,
+    fontWeight: '900',
+    textAlign: 'right',
+    color: billTheme.primary,
+  },
   submitButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 12,
+    borderRadius: 14,
+    minHeight: 52,
     padding: 15,
+    shadowColor: billTheme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  submitText: { fontSize: 15, fontWeight: '800' },
+  submitText: { fontSize: 15, fontWeight: '900' },
 });

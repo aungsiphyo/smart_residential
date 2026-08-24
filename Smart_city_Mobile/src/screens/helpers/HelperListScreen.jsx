@@ -1,15 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import {
   View,
-  Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
   Image,
-  Alert,
 } from 'react-native';
+import { AppText as Text } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
@@ -89,7 +89,7 @@ export default function HelperListScreen({ navigation }) {
     if (item.submitted_at || submittingId) return;
 
     const residentName = item.requested_by?.fullname || 'this resident';
-    Alert.alert(
+    showPrimeAlert(
       'Submit helper request',
       `Accept this request and notify ${residentName}?`,
       [
@@ -105,13 +105,13 @@ export default function HelperListScreen({ navigation }) {
                   request._id === item._id ? updated : request,
                 ),
               );
-              Alert.alert(
+              showPrimeAlert(
                 'Submitted',
                 'The helper request was accepted and the resident was notified.',
               );
             } catch (err) {
               if (!err.sessionExpired) {
-                Alert.alert(
+                showPrimeAlert(
                   'Unable to submit',
                   err.message || 'Please try again.',
                 );

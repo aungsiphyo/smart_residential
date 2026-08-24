@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
 import {
   View,
-  Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../../context/ThemeContext';
@@ -30,7 +29,7 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   const onSendOtp = async () => {
     if (!email.trim()) {
-      Alert.alert('Missing field', 'Please enter your email address.');
+      showPrimeAlert('Missing field', 'Please enter your email address.');
       return;
     }
 
@@ -38,9 +37,9 @@ export default function ForgotPasswordScreen({ navigation }) {
     try {
       await forgotPasswordStep1(email.trim());
       setOtpSent(true);
-      Alert.alert('OTP sent', 'Check your email for the password reset OTP verification code.');
+      showPrimeAlert('OTP sent', 'Check your email for the password reset OTP verification code.');
     } catch (err) {
-      Alert.alert('Request failed', err.message || 'Unable to request password reset.');
+      showPrimeAlert('Request failed', err.message || 'Unable to request password reset.');
     } finally {
       setLoading(false);
     }
@@ -48,26 +47,26 @@ export default function ForgotPasswordScreen({ navigation }) {
 
   const onResetPassword = async () => {
     if (!otp.trim()) {
-      Alert.alert('Missing field', 'Please enter the verification OTP.');
+      showPrimeAlert('Missing field', 'Please enter the verification OTP.');
       return;
     }
     if (!newPassword) {
-      Alert.alert('Missing field', 'Please enter your new password.');
+      showPrimeAlert('Missing field', 'Please enter your new password.');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Invalid Password', 'New password must be at least 6 characters.');
+      showPrimeAlert('Invalid Password', 'New password must be at least 6 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Mismatch', 'Confirm password does not match new password.');
+      showPrimeAlert('Mismatch', 'Confirm password does not match new password.');
       return;
     }
 
     setLoading(true);
     try {
       await forgotPasswordStep2(email.trim(), otp.trim(), newPassword);
-      Alert.alert(
+      showPrimeAlert(
         'Success',
         'Your password has been successfully reset. Please sign in with your new password.',
         [
@@ -78,7 +77,7 @@ export default function ForgotPasswordScreen({ navigation }) {
         ]
       );
     } catch (err) {
-      Alert.alert('Reset failed', err.message || 'Invalid or expired OTP.');
+      showPrimeAlert('Reset failed', err.message || 'Invalid or expired OTP.');
     } finally {
       setLoading(false);
     }

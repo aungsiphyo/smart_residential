@@ -1,24 +1,23 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
-import { useTheme } from '../../context/ThemeContext';
 import {
   buildNotificationRecipientPayload,
   fetchResidentsForNotifications,
   sendAdminNotification,
 } from '../../api/adminNotifications';
+import notificationTheme from '../notifications/notificationTheme';
 
 const TARGETS = [
   { id: 'all', label: 'All residents', icon: 'people-outline' },
@@ -28,7 +27,7 @@ const TARGETS = [
 const NOTIFICATION_TYPES = ['General', 'Announcement', 'Emergency'];
 
 export default function AdminNotificationScreen({ navigation }) {
-  const { theme } = useTheme();
+  const theme = notificationTheme;
   const [target, setTarget] = useState('all');
   const [residents, setResidents] = useState([]);
   const [selectedResidentIds, setSelectedResidentIds] = useState([]);
@@ -82,12 +81,12 @@ export default function AdminNotificationScreen({ navigation }) {
 
   const onSubmit = async () => {
     if (!title.trim() || !message.trim()) {
-      Alert.alert('Missing fields', 'Please enter a title and message.');
+      showPrimeAlert('Missing fields', 'Please enter a title and message.');
       return;
     }
 
     if (target === 'selected' && selectedResidentIds.length === 0) {
-      Alert.alert(
+      showPrimeAlert(
         'Select residents',
         'Please choose at least one resident first.',
       );
@@ -111,7 +110,7 @@ export default function AdminNotificationScreen({ navigation }) {
         ? ` In-app notification sent; device push skipped (${pushDelivery.reason}).`
         : '';
 
-      Alert.alert(
+      showPrimeAlert(
         'Notification sent',
         `${sentCount} resident${
           sentCount === 1 ? '' : 's'
@@ -122,7 +121,7 @@ export default function AdminNotificationScreen({ navigation }) {
       if (target === 'selected') setSelectedResidentIds([]);
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert(
+        showPrimeAlert(
           'Send failed',
           err.message || 'Unable to send notification.',
         );
@@ -138,6 +137,7 @@ export default function AdminNotificationScreen({ navigation }) {
       topBarVariant="stack"
       title="Send Notification"
       showBottomNav
+      themeOverride={theme}
     >
       <ScrollView
         contentContainerStyle={styles.container}
@@ -228,7 +228,7 @@ export default function AdminNotificationScreen({ navigation }) {
                 <ActivityIndicator color={theme.primary} />
               </View>
             ) : error ? (
-              <Card>
+              <Card style={styles.feedbackCard}>
                 <Text style={[styles.errorText, { color: theme.danger }]}>
                   {error}
                 </Text>
@@ -301,7 +301,7 @@ export default function AdminNotificationScreen({ navigation }) {
               })
             )}
             {!loadingResidents && !error && filteredResidents.length === 0 ? (
-              <Card>
+              <Card style={styles.feedbackCard}>
                 <Text style={[styles.emptyText, { color: theme.subtext }]}>
                   No residents found
                 </Text>
@@ -414,31 +414,47 @@ export default function AdminNotificationScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40 },
-  section: { marginBottom: 16 },
-  label: { fontSize: 13, fontWeight: '700', marginBottom: 8 },
-  segmentRow: { flexDirection: 'row', gap: 8 },
+  container: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 44,
+  },
+  section: {
+    backgroundColor: notificationTheme.card,
+    borderWidth: 1,
+    borderColor: notificationTheme.border,
+    borderRadius: 19,
+    padding: 17,
+    marginBottom: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.25,
+    shadowRadius: 13,
+    elevation: 4,
+  },
+  label: { fontSize: 13, fontWeight: '800', marginBottom: 10 },
+  segmentRow: { flexDirection: 'row', gap: 9 },
   segment: {
     flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
+    minHeight: 48,
+    borderRadius: 13,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
   },
-  segmentText: { fontSize: 13, fontWeight: '700' },
+  segmentText: { fontSize: 13, fontWeight: '900' },
   searchBox: {
-    height: 48,
-    borderRadius: 12,
+    minHeight: 48,
+    borderRadius: 13,
     borderWidth: 1,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   searchInput: { flex: 1, fontSize: 14 },
   selectionSummary: {
@@ -446,64 +462,84 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
   },
-  selectionText: { fontSize: 12, fontWeight: '700' },
-  clearText: { fontSize: 12, fontWeight: '800' },
-  residentLoading: { paddingVertical: 18 },
+  selectionText: { fontSize: 12, fontWeight: '800' },
+  clearText: { fontSize: 12, fontWeight: '900' },
+  residentLoading: { paddingVertical: 20 },
   errorText: { fontSize: 14 },
+  feedbackCard: {
+    backgroundColor: notificationTheme.input,
+    borderColor: notificationTheme.border,
+    borderRadius: 14,
+    marginBottom: 0,
+  },
   residentRow: {
-    minHeight: 62,
+    minHeight: 66,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 14,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 9,
   },
   residentIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3E3527',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 11,
   },
   residentCopy: { flex: 1 },
-  residentName: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  residentName: { fontSize: 14, fontWeight: '800', marginBottom: 3 },
   residentMeta: { fontSize: 12 },
   emptyText: { fontSize: 13, textAlign: 'center' },
-  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   typeChip: {
-    borderRadius: 18,
+    borderRadius: 19,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
-  typeText: { fontSize: 13, fontWeight: '700' },
+  typeText: { fontSize: 13, fontWeight: '800' },
   inputWrap: {
     borderWidth: 1,
-    borderRadius: 12,
-    height: 50,
-    paddingHorizontal: 12,
+    borderRadius: 13,
+    minHeight: 50,
+    paddingHorizontal: 13,
     justifyContent: 'center',
   },
   input: { fontSize: 15 },
   textAreaWrap: {
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    borderRadius: 13,
+    paddingHorizontal: 13,
   },
-  textArea: { minHeight: 116, fontSize: 15, paddingVertical: 12 },
+  textArea: {
+    minHeight: 122,
+    fontSize: 15,
+    lineHeight: 21,
+    paddingVertical: 13,
+  },
   sendBtn: {
-    minHeight: 50,
-    borderRadius: 12,
+    minHeight: 52,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: notificationTheme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  sendText: { fontSize: 15, fontWeight: '700' },
+  sendText: { fontSize: 15, fontWeight: '900' },
   disabled: { opacity: 0.7 },
 });

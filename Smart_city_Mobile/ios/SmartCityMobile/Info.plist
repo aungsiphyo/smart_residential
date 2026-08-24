@@ -63,6 +63,9 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>Ionicons.ttf</string>
+		<string>Z06-Walone Regular.ttf</string>
+		<string>Z06-Walone Bold.ttf</string>
+		<string>Z06-Walone Thin.ttf</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>

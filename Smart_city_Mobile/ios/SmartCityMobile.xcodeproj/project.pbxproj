@@ -10,6 +10,9 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		A7B4C1113A1F000100000011 /* Z06-Walone Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A7B4C1013A1F000100000001 /* Z06-Walone Regular.ttf */; };
+		A7B4C1123A1F000100000012 /* Z06-Walone Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A7B4C1023A1F000100000002 /* Z06-Walone Bold.ttf */; };
+		A7B4C1133A1F000100000013 /* Z06-Walone Thin.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A7B4C1033A1F000100000003 /* Z06-Walone Thin.ttf */; };
 		C277B368A5AACE4D4B7B51A0 /* Pods_SmartCityMobile.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FBB0C6EAEFC69B74215C02DD /* Pods_SmartCityMobile.framework */; };
 		D81105C19DE50852BE5C35DF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
@@ -22,6 +25,9 @@
 		1C54520F00D8C9634D6DAFDD /* Pods-SmartCityMobile.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SmartCityMobile.debug.xcconfig"; path = "Target Support Files/Pods-SmartCityMobile/Pods-SmartCityMobile.debug.xcconfig"; sourceTree = "<group>"; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = SmartCityMobile/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = SmartCityMobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		A7B4C1013A1F000100000001 /* Z06-Walone Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Z06-Walone Regular.ttf"; path = "../src/assets/fonts/Z06-Walone Regular.ttf"; sourceTree = SOURCE_ROOT; };
+		A7B4C1023A1F000100000002 /* Z06-Walone Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Z06-Walone Bold.ttf"; path = "../src/assets/fonts/Z06-Walone Bold.ttf"; sourceTree = SOURCE_ROOT; };
+		A7B4C1033A1F000100000003 /* Z06-Walone Thin.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Z06-Walone Thin.ttf"; path = "../src/assets/fonts/Z06-Walone Thin.ttf"; sourceTree = SOURCE_ROOT; };
 		ECC1B68782CBB4140F0A6032 /* Pods-SmartCityMobile.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SmartCityMobile.release.xcconfig"; path = "Target Support Files/Pods-SmartCityMobile/Pods-SmartCityMobile.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FBB0C6EAEFC69B74215C02DD /* Pods_SmartCityMobile.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SmartCityMobile.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -71,6 +77,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07FAE1A68108700A75B9A /* SmartCityMobile */,
+				A7B4C1203A1F000100000020 /* Walone Fonts */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -80,6 +87,16 @@
 			sourceTree = "<group>";
 			tabWidth = 2;
 			usesTabs = 0;
+		};
+		A7B4C1203A1F000100000020 /* Walone Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A7B4C1013A1F000100000001 /* Z06-Walone Regular.ttf */,
+				A7B4C1023A1F000100000002 /* Z06-Walone Bold.ttf */,
+				A7B4C1033A1F000100000003 /* Z06-Walone Thin.ttf */,
+			);
+			name = "Walone Fonts";
+			sourceTree = "<group>";
 		};
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
@@ -162,6 +179,9 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				D81105C19DE50852BE5C35DF /* PrivacyInfo.xcprivacy in Resources */,
+				A7B4C1113A1F000100000011 /* Z06-Walone Regular.ttf in Resources */,
+				A7B4C1123A1F000100000012 /* Z06-Walone Bold.ttf in Resources */,
+				A7B4C1133A1F000100000013 /* Z06-Walone Thin.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

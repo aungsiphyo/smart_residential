@@ -1,23 +1,22 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Clipboard,
   Image,
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Card from '../../components/Card';
 import ScreenContainer from '../../components/ScreenContainer';
 import { fetchBill, submitBillPayment } from '../../api/bills';
-import { useTheme } from '../../context/ThemeContext';
+import billTheme from './billTheme';
 
 const KPAY_PHONE = '09965139303';
 const SUBMITTABLE_STATUSES = new Set([
@@ -36,7 +35,7 @@ function getBillCategory(bill) {
 }
 
 export default function BillPaymentScreen({ navigation, route }) {
-  const { theme } = useTheme();
+  const theme = billTheme;
   const [bill, setBill] = useState(route.params?.bill || null);
   const [screenshot, setScreenshot] = useState(null);
   const [note, setNote] = useState('');
@@ -49,7 +48,7 @@ export default function BillPaymentScreen({ navigation, route }) {
       setBill(latest);
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Unable to load bill', err.message || 'Please try again.');
+        showPrimeAlert('Unable to load bill', err.message || 'Please try again.');
       }
     } finally {
       setLoading(false);
@@ -64,7 +63,7 @@ export default function BillPaymentScreen({ navigation, route }) {
 
   const copyValue = (value, label) => {
     Clipboard.setString(String(value));
-    Alert.alert('Copied', `${label} copied to clipboard.`);
+    showPrimeAlert('Copied', `${label} copied to clipboard.`);
   };
 
   const chooseScreenshot = async () => {
@@ -88,13 +87,13 @@ export default function BillPaymentScreen({ navigation, route }) {
       }
       setScreenshot(asset);
     } catch (err) {
-      Alert.alert('Unable to select screenshot', err.message);
+      showPrimeAlert('Unable to select screenshot', err.message);
     }
   };
 
   const submitPayment = async () => {
     if (!screenshot) {
-      Alert.alert(
+      showPrimeAlert(
         'Screenshot required',
         'Upload the KPay transfer screenshot first.',
       );
@@ -109,14 +108,14 @@ export default function BillPaymentScreen({ navigation, route }) {
         screenshot,
         note: note.trim(),
       });
-      Alert.alert(
+      showPrimeAlert(
         'Submitted for verification',
         'Your bill is not marked Paid yet. Admin must verify and approve this payment.',
         [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('Submission failed', err.message || 'Please try again.');
+        showPrimeAlert('Submission failed', err.message || 'Please try again.');
       }
     } finally {
       setSubmitting(false);
@@ -129,6 +128,7 @@ export default function BillPaymentScreen({ navigation, route }) {
         navigation={navigation}
         topBarVariant="stack"
         title="Pay Bill"
+        themeOverride={theme}
       >
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={theme.primary} />
@@ -144,9 +144,10 @@ export default function BillPaymentScreen({ navigation, route }) {
       navigation={navigation}
       topBarVariant="stack"
       title="Pay Bill"
+      themeOverride={theme}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <Card>
+        <Card style={[styles.billCard, styles.amountCard]}>
           <Text style={[styles.eyebrow, { color: theme.subtext }]}>
             EXACT BILL AMOUNT
           </Text>
@@ -156,7 +157,9 @@ export default function BillPaymentScreen({ navigation, route }) {
           <Text style={[styles.billTitle, { color: theme.subtext }]}>
             {bill.title}
           </Text>
-          <View style={[styles.categoryBox, { backgroundColor: theme.primaryBg }]}>
+          <View
+            style={[styles.categoryBox, { backgroundColor: theme.primaryBg }]}
+          >
             <Text style={[styles.categoryText, { color: theme.primary }]}>
               Paying only: {getBillCategory(bill)}
             </Text>
@@ -184,7 +187,7 @@ export default function BillPaymentScreen({ navigation, route }) {
           </TouchableOpacity>
         </Card>
 
-        <Card>
+        <Card style={styles.billCard}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             KPay transfer details
           </Text>
@@ -218,7 +221,7 @@ export default function BillPaymentScreen({ navigation, route }) {
           <TouchableOpacity
             style={[styles.manualButton, { borderColor: theme.border }]}
             onPress={() =>
-              Alert.alert(
+              showPrimeAlert(
                 'How to pay with KPay',
                 `1. Copy phone number ${KPAY_PHONE}.\n2. Copy the exact amount ${formatAmount(
                   bill.amount,
@@ -232,7 +235,7 @@ export default function BillPaymentScreen({ navigation, route }) {
           </TouchableOpacity>
         </Card>
 
-        <Card>
+        <Card style={styles.billCard}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Payment screenshot
           </Text>
@@ -317,92 +320,150 @@ export default function BillPaymentScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 44, gap: 12 },
+  container: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 48,
+    gap: 14,
+  },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  billCard: {
+    backgroundColor: billTheme.card,
+    borderColor: billTheme.border,
+    borderRadius: 20,
+    padding: 18,
+    marginBottom: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  amountCard: {
+    borderColor: billTheme.primary,
+    shadowColor: billTheme.primary,
+    shadowOpacity: 0.12,
+  },
   eyebrow: {
     fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginBottom: 8,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+    marginBottom: 9,
   },
-  amount: { fontSize: 30, fontWeight: '900' },
-  billTitle: { fontSize: 14, marginTop: 4 },
+  amount: { fontSize: 34, fontWeight: '900', letterSpacing: -0.7 },
+  billTitle: { fontSize: 14, lineHeight: 20, marginTop: 5 },
   categoryBox: {
     alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 10,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: '#5B3C08',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    marginTop: 12,
   },
   categoryText: { fontSize: 12, fontWeight: '900' },
-  sectionTitle: { fontSize: 17, fontWeight: '800', marginBottom: 14 },
-  label: { fontSize: 12, fontWeight: '600' },
-  phone: { fontSize: 25, fontWeight: '800', marginTop: 4, marginBottom: 14 },
+  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
+  label: { fontSize: 12, fontWeight: '700' },
+  phone: {
+    fontSize: 27,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+    marginTop: 5,
+    marginBottom: 16,
+  },
   copyButton: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
     borderWidth: 1,
-    borderRadius: 9,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    marginTop: 14,
+    borderRadius: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+    marginTop: 16,
   },
-  copyText: { fontSize: 13, fontWeight: '700' },
+  copyText: { fontSize: 13, fontWeight: '800' },
   primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    minHeight: 50,
     paddingVertical: 13,
-    borderRadius: 11,
+    borderRadius: 14,
+    shadowColor: billTheme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  primaryText: { fontSize: 15, fontWeight: '800' },
+  primaryText: { fontSize: 15, fontWeight: '900' },
   notice: {
     flexDirection: 'row',
     gap: 9,
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 14,
+    padding: 13,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#5B3C08',
+    marginTop: 15,
   },
-  noticeText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  noticeText: { flex: 1, fontSize: 12, lineHeight: 19 },
   manualButton: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
+    minHeight: 46,
     padding: 12,
-    marginTop: 10,
+    marginTop: 12,
   },
-  manualText: { textAlign: 'center', fontSize: 13, fontWeight: '700' },
-  help: { fontSize: 12, lineHeight: 18, marginBottom: 12 },
-  preview: { width: '100%', height: 210, borderRadius: 11, marginBottom: 12 },
+  manualText: { textAlign: 'center', fontSize: 13, fontWeight: '800' },
+  help: { fontSize: 12, lineHeight: 19, marginBottom: 13 },
+  preview: {
+    width: '100%',
+    height: 210,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#3E3527',
+    marginBottom: 13,
+  },
   uploadButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderRadius: 11,
+    borderRadius: 13,
+    minHeight: 49,
     padding: 13,
   },
-  uploadText: { fontSize: 14, fontWeight: '700' },
+  uploadText: { fontSize: 14, fontWeight: '800' },
   noteInput: {
-    minHeight: 82,
+    minHeight: 90,
     borderWidth: 1,
-    borderRadius: 11,
-    marginTop: 12,
-    padding: 12,
+    borderRadius: 13,
+    marginTop: 13,
+    padding: 13,
     textAlignVertical: 'top',
   },
-  statusNotice: { borderRadius: 11, padding: 13 },
+  statusNotice: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#5B3C08',
+    padding: 14,
+  },
   statusText: { fontSize: 14, fontWeight: '800', marginBottom: 4 },
   submitButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    borderRadius: 12,
+    borderRadius: 14,
+    minHeight: 52,
     padding: 15,
+    shadowColor: billTheme.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  submitText: { fontSize: 15, fontWeight: '800' },
+  submitText: { fontSize: 15, fontWeight: '900' },
 });

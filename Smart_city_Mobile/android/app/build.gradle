@@ -84,6 +84,12 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
+    sourceSets {
+        main {
+            assets.srcDirs += ["../../src/assets"]
+        }
+    }
+
     namespace "com.smartcitymobile"
     defaultConfig {
         applicationId "com.smartcitymobile"

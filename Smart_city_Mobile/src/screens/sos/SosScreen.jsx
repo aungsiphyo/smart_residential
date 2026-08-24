@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import {
+  ScrollView,
   View,
-  Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
+import { AppText as Text } from '../../components/AppText';
+import { showPrimeAlert } from '../../services/primeAlert';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { fetchProfile } from '../../api/profile';
 import { sendSosAlert } from '../../api/sos';
+import { getProfileTheme } from '../profile/profileTheme';
 
 const EMERGENCY_TYPES = [
   { id: 'Security', label: 'Security', icon: 'shield-outline' },
@@ -21,12 +23,13 @@ const EMERGENCY_TYPES = [
 ];
 
 export default function SosScreen({ navigation }) {
-  const { theme } = useTheme();
+  const { theme: appTheme } = useTheme();
+  const theme = getProfileTheme(appTheme);
   const { user } = useAuth();
   const [selected, setSelected] = useState('Security');
   const [submitting, setSubmitting] = useState(false);
 
-  const selectedType = EMERGENCY_TYPES.find((type) => type.id === selected);
+  const selectedType = EMERGENCY_TYPES.find(type => type.id === selected);
 
   const submitSOS = async () => {
     setSubmitting(true);
@@ -36,7 +39,7 @@ export default function SosScreen({ navigation }) {
       const roomId = profile?.room_id || user?.room_id;
 
       if (!residentId || !roomId) {
-        Alert.alert(
+        showPrimeAlert(
           'Room not linked',
           'Your resident account needs a linked unit before sending SOS.',
         );
@@ -48,13 +51,21 @@ export default function SosScreen({ navigation }) {
         room_id: roomId,
         alert_type: selectedType?.label || 'General',
         priority: selected === 'Fire' ? 'Critical' : 'High',
-        message: `${selectedType?.label || 'Emergency'} SOS from ${profile?.fullname || 'resident'}.`,
+        message: `${selectedType?.label || 'Emergency'} SOS from ${
+          profile?.fullname || 'resident'
+        }.`,
       });
 
-      Alert.alert('SOS Sent', 'Security has been notified. Help is on the way.');
+      showPrimeAlert(
+        'SOS Sent',
+        'Security has been notified. Help is on the way.',
+      );
     } catch (err) {
       if (!err.sessionExpired) {
-        Alert.alert('SOS failed', err.message || 'Unable to send SOS alert.');
+        showPrimeAlert(
+          'SOS failed',
+          err.message || 'Unable to send SOS alert.',
+        );
       }
     } finally {
       setSubmitting(false);
@@ -64,7 +75,7 @@ export default function SosScreen({ navigation }) {
   const triggerSOS = () => {
     if (submitting) return;
 
-    Alert.alert(
+    showPrimeAlert(
       'Send SOS Alert?',
       'Security will be notified immediately with your location.',
       [
@@ -75,17 +86,30 @@ export default function SosScreen({ navigation }) {
   };
 
   return (
-    <ScreenContainer navigation={navigation}>
-      <View style={styles.container}>
+    <ScreenContainer navigation={navigation} themeOverride={theme}>
+      <ScrollView
+        style={[styles.scroll, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.header}>
-          <Text style={[styles.heading, { color: theme.text }]}>Emergency SOS</Text>
+          <Text style={[styles.eyebrow, { color: theme.danger }]}>
+            EMERGENCY ASSISTANCE
+          </Text>
+          <Text
+            accessibilityRole="header"
+            style={[styles.heading, { color: theme.text }]}
+          >
+            Emergency SOS
+          </Text>
           <Text style={[styles.sub, { color: theme.subtext }]}>
             Select type and hold the button to alert security
           </Text>
         </View>
 
         <View style={styles.typeRow}>
-          {EMERGENCY_TYPES.map((type) => {
+          {EMERGENCY_TYPES.map(type => {
             const active = selected === type.id;
             return (
               <TouchableOpacity
@@ -95,20 +119,49 @@ export default function SosScreen({ navigation }) {
                   {
                     backgroundColor: active ? theme.dangerBg : theme.card,
                     borderColor: active ? theme.danger : theme.border,
+                    shadowColor: active ? theme.danger : theme.shadow,
                   },
+                  submitting && styles.disabled,
                 ]}
                 onPress={() => setSelected(type.id)}
-                disabled={submitting}>
-                <Ionicons
-                  name={type.icon}
-                  size={22}
-                  color={active ? theme.danger : theme.inactive}
-                />
-                <Text
+                disabled={submitting}
+                activeOpacity={0.82}
+                accessibilityRole="radio"
+                accessibilityLabel={`${type.label} emergency type`}
+                accessibilityState={{
+                  selected: active,
+                  disabled: submitting,
+                }}
+              >
+                {active ? (
+                  <View
+                    style={[
+                      styles.selectedBadge,
+                      { backgroundColor: theme.danger },
+                    ]}
+                    importantForAccessibility="no-hide-descendants"
+                  >
+                    <Ionicons name="checkmark" size={15} color="#FFFFFF" />
+                  </View>
+                ) : null}
+                <View
                   style={[
-                    styles.typeLabel,
-                    { color: active ? theme.danger : theme.subtext },
-                  ]}>
+                    styles.typeIconWrap,
+                    {
+                      backgroundColor: active
+                        ? `${theme.danger}18`
+                        : theme.iconSurface,
+                      borderColor: active ? theme.danger : theme.goldBorder,
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={type.icon}
+                    size={30}
+                    color={active ? theme.danger : theme.primary}
+                  />
+                </View>
+                <Text style={[styles.typeLabel, { color: theme.text }]}>
                   {type.label}
                 </Text>
               </TouchableOpacity>
@@ -118,85 +171,255 @@ export default function SosScreen({ navigation }) {
 
         <View style={styles.sosArea}>
           <TouchableOpacity
-            style={[styles.sosOuter, submitting && styles.disabled]}
+            style={[
+              styles.sosOuter,
+              { shadowColor: theme.danger },
+              submitting && styles.disabled,
+            ]}
             onPress={triggerSOS}
             disabled={submitting}
-            activeOpacity={0.9}>
-            <View style={styles.sosRing}>
-              <View style={styles.sosButton}>
-                {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Ionicons name="alert" size={40} color="#FFFFFF" />
-                )}
-                <Text style={styles.sosText}>SOS</Text>
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel={`Send ${
+              selectedType?.label || 'Emergency'
+            } SOS alert`}
+            accessibilityHint="Opens a confirmation alert before sending"
+            accessibilityState={{ disabled: submitting, busy: submitting }}
+          >
+            <View
+              style={[
+                styles.sosRing,
+                {
+                  backgroundColor: `${theme.danger}0D`,
+                  borderColor: `${theme.danger}55`,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.sosInnerRing,
+                  {
+                    borderColor: theme.goldBorder,
+                    backgroundColor: `${theme.danger}12`,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.sosButton,
+                    {
+                      backgroundColor: theme.danger,
+                      borderColor: `${theme.danger}CC`,
+                    },
+                  ]}
+                >
+                  {submitting ? (
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name="alert" size={48} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.sosText}>SOS</Text>
+                </View>
               </View>
             </View>
           </TouchableOpacity>
-          <Text style={[styles.hint, { color: theme.subtext }]}>
+
+          <Text
+            style={[styles.hint, { color: theme.text }]}
+            accessibilityLiveRegion="polite"
+          >
             {submitting ? 'Sending alert...' : 'Tap to send alert'}
           </Text>
         </View>
 
-        <View style={[styles.infoCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Ionicons name="information-circle-outline" size={20} color={theme.primary} />
+        <View
+          style={[
+            styles.infoCard,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+              shadowColor: theme.shadow,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.infoIconWrap,
+              {
+                backgroundColor: theme.iconSurface,
+                borderColor: theme.goldBorder,
+              },
+            ]}
+          >
+            <Ionicons name="location-outline" size={25} color={theme.primary} />
+          </View>
           <Text style={[styles.infoText, { color: theme.subtext }]}>
-            Your unit number and location will be shared with on-duty security staff.
+            Your unit number and location will be shared with on-duty security
+            staff.
           </Text>
         </View>
-      </View>
+      </ScrollView>
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  header: { marginBottom: 24 },
-  heading: { fontSize: 24, fontWeight: '700', letterSpacing: -0.3, marginBottom: 6 },
-  sub: { fontSize: 14, lineHeight: 20 },
-  typeRow: { flexDirection: 'row', gap: 10, marginBottom: 32 },
+  scroll: {
+    flex: 1,
+  },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 26,
+    paddingBottom: 116,
+  },
+  header: {
+    marginBottom: 24,
+  },
+  eyebrow: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 2.1,
+    marginBottom: 8,
+  },
+  heading: {
+    fontSize: 36,
+    lineHeight: 43,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    marginBottom: 8,
+  },
+  sub: {
+    maxWidth: 430,
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  typeRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 34,
+  },
   typeBtn: {
     flex: 1,
+    minWidth: 0,
+    minHeight: 132,
     alignItems: 'center',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    gap: 6,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  typeLabel: { fontSize: 12, fontWeight: '600' },
-  sosArea: { alignItems: 'center', marginBottom: 32 },
-  sosOuter: { marginBottom: 12 },
+  selectedBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 25,
+    height: 25,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  typeLabel: {
+    maxWidth: '100%',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  sosArea: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  sosOuter: {
+    width: '76%',
+    maxWidth: 268,
+    aspectRatio: 1,
+    marginBottom: 18,
+    shadowOffset: { width: 0, height: 9 },
+    shadowOpacity: 0.34,
+    shadowRadius: 18,
+    elevation: 10,
+  },
   sosRing: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    backgroundColor: '#EF444422',
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sosInnerRing: {
+    width: '88%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sosButton: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: '#EF4444',
+    width: '82%',
+    aspectRatio: 1,
+    borderRadius: 999,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#EF4444',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 8,
   },
-  sosText: { color: '#FFFFFF', fontWeight: '800', fontSize: 16, marginTop: 2 },
-  hint: { fontSize: 13 },
-  disabled: { opacity: 0.7 },
+  sosText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 25,
+    lineHeight: 31,
+    letterSpacing: 2.4,
+    marginTop: 5,
+  },
+  hint: {
+    fontSize: 16,
+    lineHeight: 23,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  disabled: {
+    opacity: 0.62,
+  },
   infoCard: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    padding: 14,
-    borderRadius: 12,
+    alignItems: 'center',
+    gap: 13,
+    padding: 16,
+    borderRadius: 18,
     borderWidth: 1,
+    shadowOffset: { width: 0, height: 7 },
+    shadowOpacity: 0.2,
+    shadowRadius: 14,
+    elevation: 3,
   },
-  infoText: { flex: 1, fontSize: 13, lineHeight: 19 },
+  infoIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  infoText: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 14,
+    lineHeight: 22,
+  },
 });

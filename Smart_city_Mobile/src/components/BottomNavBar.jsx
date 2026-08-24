@@ -2,56 +2,55 @@ import React, { useMemo } from 'react';
 import {
   Platform,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AppText as Text } from './AppText';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
+import { getProfileTheme } from '../screens/profile/profileTheme';
+import {
+  APP_TABS,
+  getTabBarMetrics,
+  TAB_LAYOUT,
+} from '../navigation/tabConfig';
 
-const TABS = [
-  { name: 'Home', label: 'Home', active: 'home', inactive: 'home-outline' },
-  {
-    name: 'Bills',
-    label: 'Bills',
-    active: 'receipt',
-    inactive: 'receipt-outline',
-  },
-  { name: 'SOS', label: '', active: 'alert', inactive: 'alert' },
-  {
-    name: 'Announcements',
-    label: 'Announcements',
-    active: 'megaphone',
-    inactive: 'megaphone-outline',
-  },
-  {
-    name: 'Profile',
-    label: 'Profile',
-    active: 'person',
-    inactive: 'person-outline',
-  },
-];
-
-export default function BottomNavBar({ navigation, activeRoute }) {
-  const { theme } = useTheme();
+export default function BottomNavBar({
+  navigation,
+  activeRoute,
+  themeOverride,
+  onTabPress,
+  onTabLongPress,
+}) {
+  const { theme: appTheme } = useTheme();
+  const theme = themeOverride || getProfileTheme(appTheme);
   const insets = useSafeAreaInsets();
+  const metrics = getTabBarMetrics(insets.bottom, Platform.OS);
   const wrapperStyle = useMemo(
     () => ({
-      paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 18) : 10,
+      height: metrics.height,
+      paddingBottom: metrics.paddingBottom,
+      paddingTop: metrics.paddingTop,
       backgroundColor: theme.tabBar,
       borderTopColor: theme.tabBarBorder,
     }),
-    [insets.bottom, theme.tabBar, theme.tabBarBorder],
+    [metrics.height, metrics.paddingBottom, metrics.paddingTop, theme.tabBar, theme.tabBarBorder],
   );
 
   const goToTab = name => {
+    if (onTabPress) {
+      onTabPress(name);
+      return;
+    }
     navigation?.navigate('Tabs', { screen: name });
   };
 
+  const longPressTab = name => onTabLongPress?.(name);
+
   return (
     <View style={[styles.wrapper, wrapperStyle]}>
-      {TABS.map(tab => {
+      {APP_TABS.map(tab => {
         const focused = activeRoute === tab.name;
 
         if (tab.name === 'SOS') {
@@ -60,10 +59,18 @@ export default function BottomNavBar({ navigation, activeRoute }) {
               key={tab.name}
               style={styles.sosSlot}
               onPress={() => goToTab(tab.name)}
+              onLongPress={() => longPressTab(tab.name)}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={tab.accessibilityLabel}
+              accessibilityState={{ selected: focused }}
             >
               <View style={[styles.sosFab, focused && styles.sosFabFocused]}>
-                <Ionicons name="alert" size={28} color="#FFFFFF" />
+                <Ionicons
+                  name={tab.activeIcon}
+                  size={TAB_LAYOUT.sosIconSize}
+                  color="#FFFFFF"
+                />
               </View>
             </TouchableOpacity>
           );
@@ -74,11 +81,15 @@ export default function BottomNavBar({ navigation, activeRoute }) {
             key={tab.name}
             style={styles.tab}
             onPress={() => goToTab(tab.name)}
+            onLongPress={() => longPressTab(tab.name)}
             activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityLabel={`${tab.label} tab`}
+            accessibilityState={{ selected: focused }}
           >
             <Ionicons
-              name={focused ? tab.active : tab.inactive}
-              size={22}
+              name={focused ? tab.activeIcon : tab.inactiveIcon}
+              size={TAB_LAYOUT.iconSize}
               color={focused ? theme.primary : theme.inactive}
             />
             <Text
@@ -101,32 +112,37 @@ export default function BottomNavBar({ navigation, activeRoute }) {
 
 const styles = StyleSheet.create({
   wrapper: {
-    minHeight: Platform.OS === 'ios' ? 88 : 68,
-    paddingTop: 8,
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   tab: {
     flex: 1,
+    minWidth: 0,
+    height: TAB_LAYOUT.contentHeight,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
   label: {
-    fontSize: 10,
+    width: '100%',
+    paddingHorizontal: 2,
+    fontSize: TAB_LAYOUT.labelSize,
     fontWeight: '600',
+    textAlign: 'center',
   },
   sosSlot: {
     flex: 1,
+    minWidth: 0,
+    height: TAB_LAYOUT.contentHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    top: -18,
+    top: TAB_LAYOUT.sosOffset,
   },
   sosFab: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: TAB_LAYOUT.sosSize,
+    height: TAB_LAYOUT.sosSize,
+    borderRadius: TAB_LAYOUT.sosSize / 2,
     backgroundColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center',
