@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
   View,
   FlatList,
@@ -14,11 +14,12 @@ import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
 import { useNotifications } from '../../context/NotificationContext';
 import { fetchNotifications } from '../../api/notifications';
+import { useTheme } from '../../context/ThemeContext';
 import {
   containsMyanmarText,
   getMyanmarTextStyle,
 } from '../../theme/typography';
-import notificationTheme from './notificationTheme';
+import { getNotificationTheme } from './notificationTheme';
 import {
   mapNotification,
   notificationAccent,
@@ -26,7 +27,9 @@ import {
 } from './notificationPresentation';
 
 export default function NotificationsScreen({ navigation }) {
-  const theme = notificationTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getNotificationTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { markAllRead, markOneRead, refreshUnreadCount } = useNotifications();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +137,7 @@ export default function NotificationsScreen({ navigation }) {
         accessibilityHint="Opens notification details"
       >
         <Card
+          themeOverride={theme}
           style={[
             styles.notificationCard,
             !item.is_read && styles.unreadCard,
@@ -317,116 +321,117 @@ export default function NotificationsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  list: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 36,
-    flexGrow: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    backgroundColor: notificationTheme.card,
-    borderWidth: 1,
-    borderColor: notificationTheme.border,
-    borderRadius: 19,
-    padding: 17,
-    marginBottom: 18,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.26,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  heading: {
-    fontSize: 25,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    marginBottom: 5,
-  },
-  sub: { fontSize: 14, fontWeight: '600' },
-  markBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 42,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  markText: { fontSize: 13, fontWeight: '900' },
-  notificationCard: {
-    backgroundColor: notificationTheme.card,
-    borderColor: notificationTheme.border,
-    borderRadius: 20,
-    padding: 17,
-    marginBottom: 13,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  unreadCard: { borderLeftWidth: 3 },
-  row: { flexDirection: 'row', alignItems: 'flex-start' },
-  iconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#3E3527',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-  content: { flex: 1 },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 5,
-  },
-  title: { fontSize: 16, fontWeight: '900', lineHeight: 21, flex: 1 },
-  myanmarTitle: { lineHeight: 29 },
-  unreadDot: { width: 9, height: 9, borderRadius: 5 },
-  body: { fontSize: 14, lineHeight: 21, marginBottom: 8 },
-  myanmarBody: { lineHeight: 26 },
-  sourceLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 8,
-  },
-  sourceText: { flex: 1, fontSize: 12, fontWeight: '800' },
-  myanmarSourceText: { lineHeight: 22 },
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 22,
-  },
-  detailLink: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  detailsHint: { fontSize: 11, fontWeight: '800' },
-  time: { fontSize: 12, fontWeight: '600' },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 52,
-    gap: 12,
-  },
-  emptyText: { fontSize: 15, lineHeight: 21, textAlign: 'center' },
-  myanmarEmptyText: { lineHeight: 27 },
-  retryBtn: {
-    marginTop: 4,
-    paddingHorizontal: 18,
-    minHeight: 44,
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  retryText: { fontSize: 14, fontWeight: '800' },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    list: {
+      paddingHorizontal: 18,
+      paddingTop: 20,
+      paddingBottom: 36,
+      flexGrow: 1,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 19,
+      padding: 17,
+      marginBottom: 18,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.26,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    heading: {
+      fontSize: 25,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+      marginBottom: 5,
+    },
+    sub: { fontSize: 14, fontWeight: '600' },
+    markBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderRadius: 12,
+      minHeight: 42,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+    },
+    markText: { fontSize: 13, fontWeight: '900' },
+    notificationCard: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderRadius: 20,
+      padding: 17,
+      marginBottom: 13,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.28,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    unreadCard: { borderLeftWidth: 3 },
+    row: { flexDirection: 'row', alignItems: 'flex-start' },
+    iconWrap: {
+      width: 52,
+      height: 52,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: theme.softGoldBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
+    content: { flex: 1 },
+    titleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 5,
+    },
+    title: { fontSize: 16, fontWeight: '900', lineHeight: 21, flex: 1 },
+    myanmarTitle: { lineHeight: 29 },
+    unreadDot: { width: 9, height: 9, borderRadius: 5 },
+    body: { fontSize: 14, lineHeight: 21, marginBottom: 8 },
+    myanmarBody: { lineHeight: 26 },
+    sourceLine: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      marginBottom: 8,
+    },
+    sourceText: { flex: 1, fontSize: 12, fontWeight: '800' },
+    myanmarSourceText: { lineHeight: 22 },
+    footerRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      minHeight: 22,
+    },
+    detailLink: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+    detailsHint: { fontSize: 11, fontWeight: '800' },
+    time: { fontSize: 12, fontWeight: '600' },
+    centered: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 52,
+      gap: 12,
+    },
+    emptyText: { fontSize: 15, lineHeight: 21, textAlign: 'center' },
+    myanmarEmptyText: { lineHeight: 27 },
+    retryBtn: {
+      marginTop: 4,
+      paddingHorizontal: 18,
+      minHeight: 44,
+      justifyContent: 'center',
+      paddingVertical: 10,
+      borderRadius: 12,
+    },
+    retryText: { fontSize: 14, fontWeight: '800' },
+  });

@@ -1,4 +1,6 @@
-const billTheme = {
+import { primeLightTheme } from '../../theme/primeTheme';
+
+export const darkBillTheme = {
   mode: 'dark',
   background: '#05080A',
   surface: '#080C0F',
@@ -9,6 +11,9 @@ const billTheme = {
   text: '#F5F3EF',
   subtext: '#AAA39D',
   border: '#30363A',
+  goldBorder: '#5B3C08',
+  softGoldBorder: '#3E3527',
+  deepBorder: '#252C30',
   input: '#090E11',
   tabBar: '#080C0F',
   tabBarBorder: '#2A2E31',
@@ -24,4 +29,15 @@ const billTheme = {
   shadow: '#000000',
 };
 
-export default billTheme;
+export const lightBillTheme = {
+  ...primeLightTheme,
+  goldBorder: 'rgba(184, 117, 8, 0.52)',
+  softGoldBorder: '#E7D2AB',
+  deepBorder: primeLightTheme.divider,
+};
+
+export function getBillTheme(appTheme) {
+  return appTheme?.mode === 'light' ? lightBillTheme : darkBillTheme;
+}
+
+export default darkBillTheme;

@@ -46,7 +46,11 @@ function PrimeTabBar({ state, navigation }) {
 export default function BottomTabNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+        tabBarHideOnKeyboard: true,
+        lazy: true,
+      }}
       tabBar={PrimeTabBar}
     >
       <Tab.Screen name="Home" component={HomeScreen} />

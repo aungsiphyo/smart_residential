@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Clipboard,
@@ -8,7 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import {
+  AppText as Text,
+  AppTextInput as TextInput,
+} from '../../components/AppText';
 import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -16,7 +19,8 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import Card from '../../components/Card';
 import ScreenContainer from '../../components/ScreenContainer';
 import { fetchBill, submitBillPayment } from '../../api/bills';
-import billTheme from './billTheme';
+import { useTheme } from '../../context/ThemeContext';
+import { getBillTheme } from './billTheme';
 
 const KPAY_PHONE = '09965139303';
 const SUBMITTABLE_STATUSES = new Set([
@@ -35,7 +39,9 @@ function getBillCategory(bill) {
 }
 
 export default function BillPaymentScreen({ navigation, route }) {
-  const theme = billTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getBillTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [bill, setBill] = useState(route.params?.bill || null);
   const [screenshot, setScreenshot] = useState(null);
   const [note, setNote] = useState('');
@@ -48,7 +54,10 @@ export default function BillPaymentScreen({ navigation, route }) {
       setBill(latest);
     } catch (err) {
       if (!err.sessionExpired) {
-        showPrimeAlert('Unable to load bill', err.message || 'Please try again.');
+        showPrimeAlert(
+          'Unable to load bill',
+          err.message || 'Please try again.',
+        );
       }
     } finally {
       setLoading(false);
@@ -147,7 +156,10 @@ export default function BillPaymentScreen({ navigation, route }) {
       themeOverride={theme}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        <Card style={[styles.billCard, styles.amountCard]}>
+        <Card
+          style={[styles.billCard, styles.amountCard]}
+          themeOverride={theme}
+        >
           <Text style={[styles.eyebrow, { color: theme.subtext }]}>
             EXACT BILL AMOUNT
           </Text>
@@ -187,7 +199,7 @@ export default function BillPaymentScreen({ navigation, route }) {
           </TouchableOpacity>
         </Card>
 
-        <Card style={styles.billCard}>
+        <Card style={styles.billCard} themeOverride={theme}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             KPay transfer details
           </Text>
@@ -235,7 +247,7 @@ export default function BillPaymentScreen({ navigation, route }) {
           </TouchableOpacity>
         </Card>
 
-        <Card style={styles.billCard}>
+        <Card style={styles.billCard} themeOverride={theme}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
             Payment screenshot
           </Text>
@@ -319,151 +331,150 @@ export default function BillPaymentScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 48,
-    gap: 14,
-  },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  billCard: {
-    backgroundColor: billTheme.card,
-    borderColor: billTheme.border,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  amountCard: {
-    borderColor: billTheme.primary,
-    shadowColor: billTheme.primary,
-    shadowOpacity: 0.12,
-  },
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.4,
-    marginBottom: 9,
-  },
-  amount: { fontSize: 34, fontWeight: '900', letterSpacing: -0.7 },
-  billTitle: { fontSize: 14, lineHeight: 20, marginTop: 5 },
-  categoryBox: {
-    alignSelf: 'flex-start',
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: '#5B3C08',
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-    marginTop: 12,
-  },
-  categoryText: { fontSize: 12, fontWeight: '900' },
-  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
-  label: { fontSize: 12, fontWeight: '700' },
-  phone: {
-    fontSize: 27,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-    marginTop: 5,
-    marginBottom: 16,
-  },
-  copyButton: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderWidth: 1,
-    borderRadius: 11,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-    marginTop: 16,
-  },
-  copyText: { fontSize: 13, fontWeight: '800' },
-  primaryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    minHeight: 50,
-    paddingVertical: 13,
-    borderRadius: 14,
-    shadowColor: billTheme.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  primaryText: { fontSize: 15, fontWeight: '900' },
-  notice: {
-    flexDirection: 'row',
-    gap: 9,
-    padding: 13,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#5B3C08',
-    marginTop: 15,
-  },
-  noticeText: { flex: 1, fontSize: 12, lineHeight: 19 },
-  manualButton: {
-    borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 46,
-    padding: 12,
-    marginTop: 12,
-  },
-  manualText: { textAlign: 'center', fontSize: 13, fontWeight: '800' },
-  help: { fontSize: 12, lineHeight: 19, marginBottom: 13 },
-  preview: {
-    width: '100%',
-    height: 210,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#3E3527',
-    marginBottom: 13,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 13,
-    minHeight: 49,
-    padding: 13,
-  },
-  uploadText: { fontSize: 14, fontWeight: '800' },
-  noteInput: {
-    minHeight: 90,
-    borderWidth: 1,
-    borderRadius: 13,
-    marginTop: 13,
-    padding: 13,
-    textAlignVertical: 'top',
-  },
-  statusNotice: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#5B3C08',
-    padding: 14,
-  },
-  statusText: { fontSize: 14, fontWeight: '800', marginBottom: 4 },
-  submitButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: 14,
-    minHeight: 52,
-    padding: 15,
-    shadowColor: billTheme.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  submitText: { fontSize: 15, fontWeight: '900' },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 18,
+      paddingTop: 20,
+      paddingBottom: 48,
+      gap: 14,
+    },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    billCard: {
+      borderRadius: 20,
+      padding: 18,
+      marginBottom: 0,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.28,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    amountCard: {
+      borderColor: theme.primary,
+      shadowColor: theme.primary,
+      shadowOpacity: 0.12,
+    },
+    eyebrow: {
+      fontSize: 11,
+      fontWeight: '900',
+      letterSpacing: 1.4,
+      marginBottom: 9,
+    },
+    amount: { fontSize: 34, fontWeight: '900', letterSpacing: -0.7 },
+    billTitle: { fontSize: 14, lineHeight: 20, marginTop: 5 },
+    categoryBox: {
+      alignSelf: 'flex-start',
+      borderRadius: 9,
+      borderWidth: 1,
+      borderColor: theme.goldBorder,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+      marginTop: 12,
+    },
+    categoryText: { fontSize: 12, fontWeight: '900' },
+    sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 15 },
+    label: { fontSize: 12, fontWeight: '700' },
+    phone: {
+      fontSize: 27,
+      fontWeight: '900',
+      letterSpacing: 0.3,
+      marginTop: 5,
+      marginBottom: 16,
+    },
+    copyButton: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      borderWidth: 1,
+      borderRadius: 11,
+      paddingHorizontal: 13,
+      paddingVertical: 10,
+      marginTop: 16,
+    },
+    copyText: { fontSize: 13, fontWeight: '800' },
+    primaryButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      minHeight: 50,
+      paddingVertical: 13,
+      borderRadius: 14,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    primaryText: { fontSize: 15, fontWeight: '900' },
+    notice: {
+      flexDirection: 'row',
+      gap: 9,
+      padding: 13,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.goldBorder,
+      marginTop: 15,
+    },
+    noticeText: { flex: 1, fontSize: 12, lineHeight: 19 },
+    manualButton: {
+      borderWidth: 1,
+      borderRadius: 12,
+      minHeight: 46,
+      padding: 12,
+      marginTop: 12,
+    },
+    manualText: { textAlign: 'center', fontSize: 13, fontWeight: '800' },
+    help: { fontSize: 12, lineHeight: 19, marginBottom: 13 },
+    preview: {
+      width: '100%',
+      height: 210,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.softGoldBorder,
+      marginBottom: 13,
+    },
+    uploadButton: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderRadius: 13,
+      minHeight: 49,
+      padding: 13,
+    },
+    uploadText: { fontSize: 14, fontWeight: '800' },
+    noteInput: {
+      minHeight: 90,
+      borderWidth: 1,
+      borderRadius: 13,
+      marginTop: 13,
+      padding: 13,
+      textAlignVertical: 'top',
+    },
+    statusNotice: {
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.goldBorder,
+      padding: 14,
+    },
+    statusText: { fontSize: 14, fontWeight: '800', marginBottom: 4 },
+    submitButton: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 8,
+      borderRadius: 14,
+      minHeight: 52,
+      padding: 15,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.18,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    submitText: { fontSize: 15, fontWeight: '900' },
+  });

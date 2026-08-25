@@ -1,13 +1,17 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import {
+  AppText as Text,
+  AppTextInput as TextInput,
+} from '../../components/AppText';
 import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -25,6 +29,7 @@ import {
   settlePrimeCityMerchant,
 } from '../../api/rfidWallet';
 import { fetchResidentsForNotifications } from '../../api/adminNotifications';
+import { getResidentWalletTheme } from './residentWalletTheme';
 
 function formatAmount(value) {
   return `${Number(value || 0).toLocaleString('en-US')} MMK`;
@@ -37,7 +42,8 @@ function formatDate(value) {
 }
 
 function ResidentRfidCardScreen({ navigation }) {
-  const { theme } = useTheme();
+  const { theme: appTheme } = useTheme();
+  const theme = getResidentWalletTheme(appTheme);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -157,14 +163,17 @@ function ResidentRfidCardScreen({ navigation }) {
       topBarVariant="stack"
       title="My Wallet"
       showBottomNav
+      themeOverride={theme}
     >
       {loading && !data ? (
-        <View style={styles.centered}>
+        <View style={residentWalletStyles.centered}>
           <ActivityIndicator size="large" color={theme.primary} />
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.container}
+          contentContainerStyle={residentWalletStyles.container}
+          keyboardDismissMode="interactive"
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -174,17 +183,36 @@ function ResidentRfidCardScreen({ navigation }) {
           }
         >
           {error ? (
-            <Card style={[styles.errorCard, { borderColor: theme.danger }]}>
+            <Card
+              themeOverride={theme}
+              style={[
+                residentWalletStyles.errorCard,
+                { borderColor: theme.danger },
+              ]}
+            >
               <Ionicons
                 name="alert-circle-outline"
                 size={22}
                 color={theme.danger}
               />
-              <Text style={[styles.errorText, { color: theme.text }]}>
+              <Text
+                style={[residentWalletStyles.errorText, { color: theme.text }]}
+              >
                 {error}
               </Text>
-              <TouchableOpacity onPress={() => loadWallet()}>
-                <Text style={[styles.retryText, { color: theme.primary }]}>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading wallet"
+                hitSlop={8}
+                onPress={() => loadWallet()}
+                style={residentWalletStyles.retryButton}
+              >
+                <Text
+                  style={[
+                    residentWalletStyles.retryText,
+                    { color: theme.primary },
+                  ]}
+                >
                   Retry
                 </Text>
               </TouchableOpacity>
@@ -192,109 +220,209 @@ function ResidentRfidCardScreen({ navigation }) {
           ) : null}
 
           <View
+            accessible
+            accessibilityLabel={`RFID access and wallet. ${
+              card?.masked_uid || 'No card assigned'
+            }. Status ${String(card?.status || 'unassigned').toUpperCase()}.`}
             style={[
-              styles.digitalCard,
-              {
-                backgroundColor: activeCard ? theme.primary : theme.card,
-                borderColor: activeCard ? theme.primary : theme.border,
-              },
+              residentWalletStyles.digitalCard,
+              { shadowColor: theme.shadow },
             ]}
           >
-            <View style={styles.cardHeader}>
-              <View>
-                <Text
-                  style={[
-                    styles.cardEyebrow,
-                    { color: activeCard ? theme.primaryText : theme.subtext },
-                  ]}
-                >
-                  PRIME CITY RESIDENT
-                </Text>
-                <Text
-                  style={[
-                    styles.cardTitle,
-                    { color: activeCard ? theme.primaryText : theme.text },
-                  ]}
-                >
-                  RFID Access & Wallet
-                </Text>
-              </View>
-              <Ionicons
-                name="radio-outline"
-                size={30}
-                color={activeCard ? theme.primaryText : theme.inactive}
-              />
-            </View>
-            <Text
-              style={[
-                styles.cardNumber,
-                { color: activeCard ? theme.primaryText : theme.text },
-              ]}
+            <View
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              style={residentWalletStyles.rfidDecoration}
             >
-              {card?.masked_uid || 'No card assigned'}
-            </Text>
-            <View style={styles.cardFooter}>
-              <Text
+              <View
                 style={[
-                  styles.cardStatus,
-                  { color: activeCard ? theme.primaryText : theme.subtext },
+                  residentWalletStyles.rfidWave,
+                  residentWalletStyles.rfidWaveOne,
+                ]}
+              />
+              <View
+                style={[
+                  residentWalletStyles.rfidWave,
+                  residentWalletStyles.rfidWaveTwo,
+                ]}
+              />
+              <View
+                style={[
+                  residentWalletStyles.rfidWave,
+                  residentWalletStyles.rfidWaveThree,
+                ]}
+              />
+              <View style={residentWalletStyles.rfidFineLineOne} />
+              <View style={residentWalletStyles.rfidFineLineTwo} />
+            </View>
+
+            <View style={residentWalletStyles.cardHeader}>
+              <View style={residentWalletStyles.brandLockup}>
+                <View style={residentWalletStyles.cardLogoFrame}>
+                  <Image
+                    accessible={false}
+                    source={require('../../assets/app-icon-master.png')}
+                    resizeMode="cover"
+                    style={residentWalletStyles.cardLogo}
+                  />
+                </View>
+                <View style={residentWalletStyles.cardHeaderCopy}>
+                  <Text style={residentWalletStyles.cardEyebrow}>
+                    PRIME CITY RESIDENT
+                  </Text>
+                  <Text style={residentWalletStyles.cardTitle}>
+                    RFID Access & Wallet
+                  </Text>
+                </View>
+              </View>
+              <View style={residentWalletStyles.rfidIconSurface}>
+                <Ionicons name="radio-outline" size={29} color="#0D4F8B" />
+              </View>
+            </View>
+
+            <View style={residentWalletStyles.cardIdentity}>
+              <Text style={residentWalletStyles.cardNumber}>
+                {card?.masked_uid || 'No card assigned'}
+              </Text>
+            </View>
+
+            <View style={residentWalletStyles.cardFooter}>
+              <View
+                style={[
+                  residentWalletStyles.cardStatusBadge,
+                  activeCard
+                    ? residentWalletStyles.cardStatusBadgeActive
+                    : residentWalletStyles.cardStatusBadgeInactive,
                 ]}
               >
-                {String(card?.status || 'unassigned').toUpperCase()}
-              </Text>
-              <Ionicons
-                name={
-                  activeCard ? 'checkmark-circle' : 'information-circle-outline'
-                }
-                size={18}
-                color={activeCard ? theme.primaryText : theme.warning}
-              />
+                <Ionicons
+                  name={
+                    activeCard
+                      ? 'checkmark-circle'
+                      : 'information-circle-outline'
+                  }
+                  size={17}
+                  color={activeCard ? '#076157' : '#A35E00'}
+                />
+                <Text
+                  style={[
+                    residentWalletStyles.cardStatus,
+                    activeCard
+                      ? residentWalletStyles.cardStatusActive
+                      : residentWalletStyles.cardStatusInactive,
+                  ]}
+                >
+                  {String(card?.status || 'unassigned').toUpperCase()}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <Card>
-            <Text style={[styles.sectionLabel, { color: theme.subtext }]}>
-              MY WALLET BALANCE
-            </Text>
-            <Text style={[styles.balance, { color: theme.text }]}>
-              {formatAmount(wallet?.balance_mmk)}
-            </Text>
+          <Card
+            themeOverride={theme}
+            style={[
+              residentWalletStyles.sectionCard,
+              { borderColor: theme.border },
+            ]}
+          >
+            <View style={residentWalletStyles.balanceHeader}>
+              <View style={residentWalletStyles.balanceCopy}>
+                <Text
+                  style={[
+                    residentWalletStyles.sectionLabel,
+                    { color: theme.subtext },
+                  ]}
+                >
+                  MY WALLET BALANCE
+                </Text>
+                <Text
+                  accessibilityLabel={`Wallet balance ${formatAmount(
+                    wallet?.balance_mmk,
+                  )}`}
+                  style={[residentWalletStyles.balance, { color: theme.text }]}
+                >
+                  {formatAmount(wallet?.balance_mmk)}
+                </Text>
+              </View>
+              <View
+                style={[
+                  residentWalletStyles.goldIconSurface,
+                  {
+                    backgroundColor: theme.primaryBg,
+                    borderColor: theme.goldBorder,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="wallet-outline"
+                  size={27}
+                  color={theme.primary}
+                />
+              </View>
+            </View>
             <View
-              style={[styles.infoBox, { backgroundColor: theme.primaryBg }]}
+              style={[
+                residentWalletStyles.infoBox,
+                {
+                  backgroundColor: theme.primaryBg,
+                  borderColor: theme.goldBorder,
+                },
+              ]}
             >
               <Ionicons
                 name="shield-checkmark-outline"
                 size={19}
                 color={theme.primary}
               />
-              <Text style={[styles.infoText, { color: theme.text }]}>
+              <Text
+                style={[residentWalletStyles.infoText, { color: theme.text }]}
+              >
                 Wallet credits are added by authorized Admin/Staff only. Every
                 payment is recorded in your private transaction history.
               </Text>
             </View>
           </Card>
 
-          <Text style={[styles.heading, { color: theme.text }]}>
+          <Text style={[residentWalletStyles.heading, { color: theme.text }]}>
             Pay at Prime City
           </Text>
-          <Card>
-            <Text style={[styles.infoText, { color: theme.subtext }]}>
+          <Card
+            themeOverride={theme}
+            style={[
+              residentWalletStyles.sectionCard,
+              { borderColor: theme.border },
+            ]}
+          >
+            <Text
+              style={[
+                residentWalletStyles.paymentIntro,
+                { color: theme.subtext },
+              ]}
+            >
               Choose an approved shop and confirm the exact amount shown by the
               merchant. Every payment creates a private receipt.
             </Text>
-            <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            <Text
+              style={[residentWalletStyles.formLabel, { color: theme.subtext }]}
+            >
               Shop
             </Text>
-            <View style={styles.merchantList}>
+            <View style={residentWalletStyles.merchantList}>
               {merchants.length ? (
                 merchants.map(merchant => {
                   const selected = selectedMerchant?._id === merchant._id;
                   return (
                     <TouchableOpacity
                       key={merchant._id}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${merchant.name}, ${
+                        merchant.location || 'Prime City'
+                      }, ${merchant.merchant_code}`}
+                      accessibilityState={{ selected }}
                       onPress={() => setSelectedMerchant(merchant)}
                       style={[
-                        styles.merchantOption,
+                        residentWalletStyles.merchantOption,
                         {
                           borderColor: selected ? theme.primary : theme.border,
                           backgroundColor: selected
@@ -305,20 +433,23 @@ function ResidentRfidCardScreen({ navigation }) {
                     >
                       <Ionicons
                         name={
-                          selected ? 'radio-button-on' : 'storefront-outline'
+                          selected ? 'checkmark-circle' : 'storefront-outline'
                         }
-                        size={19}
+                        size={21}
                         color={selected ? theme.primary : theme.inactive}
                       />
-                      <View style={styles.transactionCopy}>
+                      <View style={residentWalletStyles.merchantCopy}>
                         <Text
-                          style={[styles.residentName, { color: theme.text }]}
+                          style={[
+                            residentWalletStyles.merchantName,
+                            { color: theme.text },
+                          ]}
                         >
                           {merchant.name}
                         </Text>
                         <Text
                           style={[
-                            styles.residentMeta,
+                            residentWalletStyles.merchantMeta,
                             { color: theme.subtext },
                           ]}
                         >
@@ -326,26 +457,65 @@ function ResidentRfidCardScreen({ navigation }) {
                           {merchant.merchant_code}
                         </Text>
                       </View>
+                      <View
+                        style={[
+                          residentWalletStyles.selectionRing,
+                          {
+                            borderColor: selected
+                              ? theme.primary
+                              : theme.inactive,
+                          },
+                          selected && { backgroundColor: theme.primary },
+                        ]}
+                      >
+                        {selected ? (
+                          <Ionicons
+                            name="checkmark"
+                            size={13}
+                            color={theme.primaryText}
+                          />
+                        ) : null}
+                      </View>
                     </TouchableOpacity>
                   );
                 })
               ) : (
-                <Text style={[styles.emptyText, { color: theme.subtext }]}>
-                  No approved shops are available yet.
-                </Text>
+                <View
+                  style={[
+                    residentWalletStyles.inlineEmpty,
+                    { borderColor: theme.border },
+                  ]}
+                >
+                  <Ionicons
+                    name="storefront-outline"
+                    size={22}
+                    color={theme.inactive}
+                  />
+                  <Text
+                    style={[
+                      residentWalletStyles.emptyText,
+                      { color: theme.subtext },
+                    ]}
+                  >
+                    No approved shops are available yet.
+                  </Text>
+                </View>
               )}
             </View>
-            <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            <Text
+              style={[residentWalletStyles.formLabel, { color: theme.subtext }]}
+            >
               Exact amount (MMK)
             </Text>
             <TextInput
+              accessibilityLabel="Exact amount in MMK"
               value={paymentAmount}
               onChangeText={setPaymentAmount}
               keyboardType="number-pad"
               placeholder="Enter exact purchase amount"
               placeholderTextColor={theme.inactive}
               style={[
-                styles.input,
+                residentWalletStyles.input,
                 {
                   color: theme.text,
                   backgroundColor: theme.input,
@@ -353,17 +523,20 @@ function ResidentRfidCardScreen({ navigation }) {
                 },
               ]}
             />
-            <Text style={[styles.formLabel, { color: theme.subtext }]}>
+            <Text
+              style={[residentWalletStyles.formLabel, { color: theme.subtext }]}
+            >
               Note (optional)
             </Text>
             <TextInput
+              accessibilityLabel="Payment note, optional"
               value={paymentNote}
               onChangeText={setPaymentNote}
               maxLength={160}
               placeholder="Order or counter reference"
               placeholderTextColor={theme.inactive}
               style={[
-                styles.input,
+                residentWalletStyles.input,
                 {
                   color: theme.text,
                   backgroundColor: theme.input,
@@ -372,25 +545,49 @@ function ResidentRfidCardScreen({ navigation }) {
               ]}
             />
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Confirm shop payment"
+              accessibilityState={{
+                disabled: paying || !activeCard,
+                busy: paying,
+              }}
               onPress={submitPayment}
               disabled={paying || !activeCard}
               style={[
-                styles.creditButton,
-                { backgroundColor: theme.primary },
-                (paying || !activeCard) && styles.disabled,
+                residentWalletStyles.paymentButton,
+                {
+                  backgroundColor: theme.primary,
+                  shadowColor: theme.shadow,
+                },
+                (paying || !activeCard) && [
+                  residentWalletStyles.paymentButtonDisabled,
+                  {
+                    backgroundColor: theme.primaryBg,
+                    borderColor: theme.goldBorder,
+                  },
+                ],
               ]}
             >
               {paying ? (
-                <ActivityIndicator color={theme.primaryText} />
+                <ActivityIndicator
+                  color={
+                    paying || !activeCard ? theme.primary : theme.primaryText
+                  }
+                />
               ) : (
                 <>
                   <Ionicons
                     name="wallet-outline"
                     size={19}
-                    color={theme.primaryText}
+                    color={activeCard ? theme.primaryText : theme.inactive}
                   />
                   <Text
-                    style={[styles.creditText, { color: theme.primaryText }]}
+                    style={[
+                      residentWalletStyles.paymentButtonText,
+                      {
+                        color: activeCard ? theme.primaryText : theme.inactive,
+                      },
+                    ]}
                   >
                     Confirm shop payment
                   </Text>
@@ -399,16 +596,23 @@ function ResidentRfidCardScreen({ navigation }) {
             </TouchableOpacity>
           </Card>
 
-          <Text style={[styles.heading, { color: theme.text }]}>
+          <Text style={[residentWalletStyles.heading, { color: theme.text }]}>
             Recent transactions
           </Text>
           {(data?.transactions || []).length ? (
             data.transactions.map(item => (
-              <Card key={item._id}>
-                <View style={styles.transactionRow}>
+              <Card
+                key={item._id}
+                themeOverride={theme}
+                style={[
+                  residentWalletStyles.transactionCard,
+                  { borderColor: theme.border },
+                ]}
+              >
+                <View style={residentWalletStyles.transactionRow}>
                   <View
                     style={[
-                      styles.transactionIcon,
+                      residentWalletStyles.transactionIcon,
                       {
                         backgroundColor:
                           item.type === 'Payment'
@@ -429,16 +633,35 @@ function ResidentRfidCardScreen({ navigation }) {
                       }
                     />
                   </View>
-                  <View style={styles.transactionCopy}>
-                    <Text
-                      style={[styles.transactionTitle, { color: theme.text }]}
-                    >
-                      {item.description}
-                    </Text>
+                  <View style={residentWalletStyles.transactionCopy}>
+                    <View style={residentWalletStyles.transactionTitleRow}>
+                      <Text
+                        style={[
+                          residentWalletStyles.transactionTitle,
+                          { color: theme.text },
+                        ]}
+                      >
+                        {item.description}
+                      </Text>
+                      <Text
+                        style={[
+                          residentWalletStyles.transactionAmount,
+                          {
+                            color:
+                              item.type === 'Payment'
+                                ? theme.warning
+                                : theme.success,
+                          },
+                        ]}
+                      >
+                        {item.type === 'Payment' ? '-' : '+'}
+                        {formatAmount(item.amount_mmk)}
+                      </Text>
+                    </View>
                     {item.merchant_id?.name ? (
                       <Text
                         style={[
-                          styles.transactionMeta,
+                          residentWalletStyles.transactionMeta,
                           { color: theme.subtext },
                         ]}
                       >
@@ -447,31 +670,46 @@ function ResidentRfidCardScreen({ navigation }) {
                       </Text>
                     ) : null}
                     <Text
-                      style={[styles.transactionMeta, { color: theme.subtext }]}
+                      style={[
+                        residentWalletStyles.transactionMeta,
+                        { color: theme.subtext },
+                      ]}
                     >
                       {formatDate(item.created_at)}
                     </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.transactionAmount,
-                      {
-                        color:
-                          item.type === 'Payment'
-                            ? theme.warning
-                            : theme.success,
-                      },
-                    ]}
-                  >
-                    {item.type === 'Payment' ? '-' : '+'}
-                    {formatAmount(item.amount_mmk)}
-                  </Text>
                 </View>
               </Card>
             ))
           ) : (
-            <Card>
-              <Text style={[styles.emptyText, { color: theme.subtext }]}>
+            <Card
+              themeOverride={theme}
+              style={[
+                residentWalletStyles.transactionEmptyCard,
+                { borderColor: theme.border },
+              ]}
+            >
+              <View
+                style={[
+                  residentWalletStyles.emptyIconSurface,
+                  {
+                    backgroundColor: theme.primaryBg,
+                    borderColor: theme.goldBorder,
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="receipt-outline"
+                  size={25}
+                  color={theme.primary}
+                />
+              </View>
+              <Text
+                style={[
+                  residentWalletStyles.emptyText,
+                  { color: theme.subtext },
+                ]}
+              >
                 No RFID wallet transactions yet.
               </Text>
             </Card>
@@ -1210,4 +1448,436 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { fontSize: 14, fontWeight: '800' },
   disabled: { opacity: 0.65 },
+});
+
+const residentWalletStyles = StyleSheet.create({
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 42,
+  },
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 58,
+    marginBottom: 14,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  retryButton: {
+    minWidth: 54,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  digitalCard: {
+    position: 'relative',
+    overflow: 'hidden',
+    minHeight: 226,
+    padding: 20,
+    marginBottom: 16,
+    backgroundColor: '#F7FBFF',
+    borderWidth: 1,
+    borderColor: '#94C7E6',
+    borderRadius: 23,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+  rfidDecoration: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  rfidWave: {
+    position: 'absolute',
+    borderRadius: 180,
+    transform: [{ rotate: '-15deg' }],
+  },
+  rfidWaveOne: {
+    width: 430,
+    height: 112,
+    right: -205,
+    top: 44,
+    backgroundColor: '#20B7DB',
+  },
+  rfidWaveTwo: {
+    width: 460,
+    height: 104,
+    right: -185,
+    top: 113,
+    backgroundColor: '#186FC0',
+  },
+  rfidWaveThree: {
+    width: 430,
+    height: 76,
+    left: -102,
+    bottom: -38,
+    backgroundColor: '#0D4F9F',
+  },
+  rfidFineLineOne: {
+    position: 'absolute',
+    width: 330,
+    height: 1,
+    right: -40,
+    bottom: 40,
+    backgroundColor: 'rgba(255,255,255,0.52)',
+    transform: [{ rotate: '-12deg' }],
+  },
+  rfidFineLineTwo: {
+    position: 'absolute',
+    width: 320,
+    height: 1,
+    right: -38,
+    bottom: 50,
+    backgroundColor: 'rgba(255,255,255,0.32)',
+    transform: [{ rotate: '-12deg' }],
+  },
+  cardHeader: {
+    zIndex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  brandLockup: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    padding: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 79, 139, 0.18)',
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  cardLogoFrame: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
+    overflow: 'hidden',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(17, 73, 122, 0.24)',
+    backgroundColor: '#05080A',
+  },
+  cardLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  cardHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardEyebrow: {
+    color: '#0D4F8B',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    lineHeight: 14,
+  },
+  cardTitle: {
+    color: '#123A60',
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+    marginTop: 3,
+  },
+  rfidIconSurface: {
+    width: 43,
+    height: 43,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(13, 79, 139, 0.3)',
+    backgroundColor: 'rgba(255,255,255,0.78)',
+  },
+  cardIdentity: {
+    zIndex: 1,
+    alignSelf: 'flex-start',
+    paddingTop: 32,
+    paddingBottom: 18,
+    maxWidth: '82%',
+  },
+  cardNumber: {
+    color: '#102F4C',
+    backgroundColor: 'rgba(255,255,255,0.84)',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    lineHeight: 31,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+  cardFooter: {
+    zIndex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardStatusBadge: {
+    minHeight: 34,
+    maxWidth: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderRadius: 18,
+  },
+  cardStatusBadgeActive: {
+    backgroundColor: '#E3F6F3',
+    borderColor: 'rgba(7, 97, 87, 0.38)',
+  },
+  cardStatusBadgeInactive: {
+    backgroundColor: '#FFF1D4',
+    borderColor: 'rgba(163, 94, 0, 0.36)',
+  },
+  cardStatus: {
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+    lineHeight: 15,
+  },
+  cardStatusActive: {
+    color: '#075A51',
+  },
+  cardStatusInactive: {
+    color: '#8A5000',
+  },
+  sectionCard: {
+    padding: 18,
+    borderRadius: 19,
+    marginBottom: 16,
+  },
+  balanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  balanceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    lineHeight: 16,
+  },
+  balance: {
+    flexShrink: 1,
+    fontSize: 31,
+    fontWeight: '900',
+    lineHeight: 40,
+    marginTop: 5,
+  },
+  goldIconSurface: {
+    width: 54,
+    height: 54,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 16,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 13,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 13,
+    marginTop: 16,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  heading: {
+    fontSize: 21,
+    fontWeight: '900',
+    lineHeight: 27,
+    marginTop: 5,
+    marginBottom: 12,
+  },
+  paymentIntro: {
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 2,
+  },
+  formLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  merchantList: {
+    gap: 9,
+  },
+  merchantOption: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    borderWidth: 1,
+    borderRadius: 14,
+  },
+  merchantCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  merchantName: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  merchantMeta: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  selectionRing: {
+    width: 22,
+    height: 22,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderRadius: 11,
+    backgroundColor: 'transparent',
+  },
+  inlineEmpty: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 13,
+    borderWidth: 1,
+    borderRadius: 14,
+  },
+  emptyText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  input: {
+    minHeight: 50,
+    borderWidth: 1,
+    borderRadius: 13,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  paymentButton: {
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: 15,
+    marginTop: 20,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  paymentButtonDisabled: {
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  paymentButtonText: {
+    fontSize: 15,
+    fontWeight: '900',
+    lineHeight: 20,
+  },
+  transactionCard: {
+    padding: 15,
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  transactionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  transactionIcon: {
+    width: 42,
+    height: 42,
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 13,
+    marginRight: 11,
+  },
+  transactionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  transactionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  transactionTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+  },
+  transactionMeta: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  transactionAmount: {
+    maxWidth: '46%',
+    flexShrink: 1,
+    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '900',
+    lineHeight: 19,
+  },
+  transactionEmptyCard: {
+    minHeight: 138,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    borderRadius: 18,
+  },
+  emptyIconSurface: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
 });

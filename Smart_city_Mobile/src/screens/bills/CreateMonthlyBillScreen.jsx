@@ -6,7 +6,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import {
+  AppText as Text,
+  AppTextInput as TextInput,
+} from '../../components/AppText';
 import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -17,7 +20,8 @@ import {
   createMonthlyBillsForAll,
   fetchBillingRooms,
 } from '../../api/bills';
-import billTheme from './billTheme';
+import { useTheme } from '../../context/ThemeContext';
+import { getBillTheme } from './billTheme';
 
 const ROOM_PRICES = {
   Business: 500000000,
@@ -26,11 +30,11 @@ const ROOM_PRICES = {
   Premium: 300000000,
 };
 const COMMON_COMPONENTS = [
-  ['electricity_amount', 'Electricity'],
-  ['water_amount', 'Water'],
-  ['maintenance_amount', 'Maintenance'],
-  ['service_amount', 'Service fee'],
-  ['other_amount', 'Other'],
+  ['electricity_amount', 'Electricity', 'flash-outline'],
+  ['water_amount', 'Water', 'water-outline'],
+  ['maintenance_amount', 'Maintenance', 'build-outline'],
+  ['service_amount', 'Service fee', 'receipt-outline'],
+  ['other_amount', 'Other', 'document-text-outline'],
 ];
 const INSTALLMENT_KEY = 'installment_amount';
 const ALL_CATEGORY_KEYS = [
@@ -66,7 +70,9 @@ function roomFinance(room) {
 }
 
 export default function CreateMonthlyBillScreen({ navigation }) {
-  const theme = billTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getBillTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const now = new Date();
   const [target, setTarget] = useState('one');
   const [rooms, setRooms] = useState([]);
@@ -88,7 +94,10 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       setRooms(await fetchBillingRooms());
     } catch (err) {
       if (!err.sessionExpired) {
-        showPrimeAlert('Unable to load rooms', err.message || 'Please try again.');
+        showPrimeAlert(
+          'Unable to load rooms',
+          err.message || 'Please try again.',
+        );
       }
     } finally {
       setLoading(false);
@@ -252,11 +261,25 @@ export default function CreateMonthlyBillScreen({ navigation }) {
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <Card style={styles.billCard}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Bill recipients
-          </Text>
+        <Card style={styles.billCard} themeOverride={theme}>
+          <View style={styles.sectionHeader}>
+            <View
+              style={[
+                styles.sectionIcon,
+                {
+                  backgroundColor: theme.primaryBg,
+                  borderColor: theme.goldBorder,
+                },
+              ]}
+            >
+              <Ionicons name="people-outline" size={21} color={theme.primary} />
+            </View>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Bill recipients
+            </Text>
+          </View>
           <View style={styles.targetRow}>
             {[
               ['one', 'One resident', 'person-outline'],
@@ -274,6 +297,9 @@ export default function CreateMonthlyBillScreen({ navigation }) {
                     },
                   ]}
                   onPress={() => setTarget(value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={label}
                 >
                   <Ionicons
                     name={icon}
@@ -338,6 +364,11 @@ export default function CreateMonthlyBillScreen({ navigation }) {
                           },
                         ]}
                         onPress={() => setSelectedRoom(room)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`Room ${room.room_name}, ${
+                          room.resident_id?.fullname || 'Resident'
+                        }`}
                       >
                         <Ionicons
                           name={
@@ -384,10 +415,23 @@ export default function CreateMonthlyBillScreen({ navigation }) {
         </Card>
 
         {target === 'one' && selectedFinance ? (
-          <Card style={styles.billCard}>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-              Room purchase plan
-            </Text>
+          <Card style={styles.billCard} themeOverride={theme}>
+            <View style={styles.sectionHeader}>
+              <View
+                style={[
+                  styles.sectionIcon,
+                  {
+                    backgroundColor: theme.primaryBg,
+                    borderColor: theme.goldBorder,
+                  },
+                ]}
+              >
+                <Ionicons name="home-outline" size={21} color={theme.primary} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                Room purchase plan
+              </Text>
+            </View>
             {[
               ['Room price', selectedFinance.price],
               ['40% paid', selectedFinance.downPayment],
@@ -406,10 +450,27 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           </Card>
         ) : null}
 
-        <Card style={styles.billCard}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Billing period
-          </Text>
+        <Card style={styles.billCard} themeOverride={theme}>
+          <View style={styles.sectionHeader}>
+            <View
+              style={[
+                styles.sectionIcon,
+                {
+                  backgroundColor: theme.primaryBg,
+                  borderColor: theme.goldBorder,
+                },
+              ]}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={21}
+                color={theme.primary}
+              />
+            </View>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Billing period
+            </Text>
+          </View>
           <View style={styles.twoColumns}>
             <View style={styles.flex}>
               <Text style={[styles.label, { color: theme.subtext }]}>
@@ -481,13 +542,41 @@ export default function CreateMonthlyBillScreen({ navigation }) {
           />
         </Card>
 
-        <Card style={[styles.billCard, styles.categoriesCard]}>
-          <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Separate bill categories
-          </Text>
-          {COMMON_COMPONENTS.map(([key, label]) => (
+        <Card
+          style={[styles.billCard, styles.categoriesCard]}
+          themeOverride={theme}
+        >
+          <View style={styles.sectionHeader}>
+            <View
+              style={[
+                styles.sectionIcon,
+                {
+                  backgroundColor: theme.primaryBg,
+                  borderColor: theme.goldBorder,
+                },
+              ]}
+            >
+              <Ionicons
+                name="receipt-outline"
+                size={21}
+                color={theme.primary}
+              />
+            </View>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>
+              Separate bill categories
+            </Text>
+          </View>
+          {COMMON_COMPONENTS.map(([key, label, icon]) => (
             <View key={key} style={styles.categoryBlock}>
               <View style={styles.amountRow}>
+                <View
+                  style={[
+                    styles.categoryIcon,
+                    { backgroundColor: theme.primaryBg },
+                  ]}
+                >
+                  <Ionicons name={icon} size={20} color={theme.primary} />
+                </View>
                 <Text style={[styles.componentLabel, { color: theme.text }]}>
                   {label}
                 </Text>
@@ -535,6 +624,14 @@ export default function CreateMonthlyBillScreen({ navigation }) {
             </View>
           ))}
           <View style={[styles.automaticRow, { backgroundColor: theme.input }]}>
+            <View
+              style={[
+                styles.categoryIcon,
+                { backgroundColor: theme.primaryBg },
+              ]}
+            >
+              <Ionicons name="home-outline" size={20} color={theme.primary} />
+            </View>
             <View style={styles.flex}>
               <Text style={[styles.componentLabel, { color: theme.text }]}>
                 Apartment installment
@@ -607,9 +704,20 @@ export default function CreateMonthlyBillScreen({ navigation }) {
         </Card>
 
         <TouchableOpacity
-          style={[styles.submitButton, { backgroundColor: theme.primary }]}
+          style={[
+            styles.submitButton,
+            { backgroundColor: theme.primary },
+            submitting && styles.submitDisabled,
+          ]}
           onPress={submit}
           disabled={submitting}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: submitting }}
+          accessibilityLabel={
+            target === 'all'
+              ? 'Create category bills for all'
+              : 'Create separate category bills'
+          }
         >
           {submitting ? (
             <ActivityIndicator color={theme.primaryText} />
@@ -631,182 +739,210 @@ export default function CreateMonthlyBillScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 48,
-    gap: 14,
-  },
-  billCard: {
-    backgroundColor: billTheme.card,
-    borderColor: billTheme.border,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 4,
-  },
-  categoriesCard: {
-    borderColor: '#3E3527',
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 16 },
-  targetRow: { flexDirection: 'row', gap: 9, marginBottom: 14 },
-  targetButton: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 13,
-    minHeight: 48,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  targetText: { fontSize: 12, fontWeight: '900' },
-  searchBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 13,
-    minHeight: 48,
-    paddingHorizontal: 13,
-  },
-  searchInput: { flex: 1, paddingVertical: 12 },
-  loader: { margin: 20 },
-  roomList: { maxHeight: 300, marginTop: 12 },
-  roomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderRadius: 13,
-    padding: 12,
-    marginBottom: 8,
-  },
-  flex: { flex: 1 },
-  roomName: { fontSize: 14, fontWeight: '800' },
-  roomResident: { fontSize: 12, lineHeight: 17, marginTop: 3 },
-  infoBox: {
-    flexDirection: 'row',
-    gap: 9,
-    padding: 13,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#252C30',
-  },
-  infoText: { flex: 1, fontSize: 12, lineHeight: 19 },
-  financeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#252C30',
-    paddingBottom: 11,
-    marginBottom: 11,
-  },
-  financeLabel: { flex: 1, fontSize: 12, lineHeight: 18 },
-  financeValue: { fontSize: 12, fontWeight: '900', textAlign: 'right' },
-  twoColumns: { flexDirection: 'row', gap: 10 },
-  label: { fontSize: 12, fontWeight: '700', marginBottom: 7, marginTop: 9 },
-  input: {
-    borderWidth: 1,
-    borderRadius: 13,
-    minHeight: 48,
-    paddingHorizontal: 13,
-    paddingVertical: 12,
-  },
-  deadlineBox: {
-    flexDirection: 'row',
-    gap: 9,
-    padding: 13,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#5B3C08',
-    marginTop: 14,
-  },
-  deadlineTitle: { fontSize: 13, fontWeight: '900' },
-  deadlineText: { fontSize: 11, lineHeight: 18, marginTop: 3 },
-  amountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  categoryBlock: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#252C30',
-    paddingBottom: 13,
-    marginBottom: 13,
-  },
-  componentLabel: { flex: 1, fontSize: 14, fontWeight: '700' },
-  amountInput: {
-    width: 130,
-    borderWidth: 1,
-    borderRadius: 12,
-    minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    textAlign: 'right',
-  },
-  automaticRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: '#252C30',
-    padding: 13,
-    marginBottom: 11,
-  },
-  autoHint: { fontSize: 11, marginTop: 2 },
-  dueInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 9,
-  },
-  dueLabel: { flex: 1, fontSize: 11, fontWeight: '700' },
-  dueInput: {
-    width: 150,
-    borderWidth: 1,
-    borderRadius: 11,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    marginTop: 10,
-    paddingTop: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  totalLabel: { flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
-  total: {
-    fontSize: 18,
-    fontWeight: '900',
-    textAlign: 'right',
-    color: billTheme.primary,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    minHeight: 52,
-    padding: 15,
-    shadowColor: billTheme.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  submitText: { fontSize: 15, fontWeight: '900' },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 52,
+      gap: 16,
+    },
+    billCard: {
+      borderColor: theme.deepBorder,
+      borderRadius: 22,
+      padding: 17,
+      marginBottom: 0,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.22,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    categoriesCard: {
+      borderColor: theme.softGoldBorder,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 11,
+      marginBottom: 16,
+    },
+    sectionIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 13,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sectionTitle: { flex: 1, fontSize: 18, fontWeight: '900' },
+    targetRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 9,
+      marginBottom: 14,
+    },
+    targetButton: {
+      flex: 1,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderRadius: 13,
+      minWidth: 135,
+      minHeight: 48,
+      paddingHorizontal: 8,
+      paddingVertical: 12,
+    },
+    targetText: { fontSize: 12, fontWeight: '900' },
+    searchBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderRadius: 13,
+      minHeight: 48,
+      paddingHorizontal: 13,
+    },
+    searchInput: { flex: 1, paddingVertical: 12 },
+    loader: { margin: 20 },
+    roomList: { maxHeight: 320, marginTop: 12 },
+    roomRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderWidth: 1,
+      borderRadius: 13,
+      minHeight: 66,
+      padding: 12,
+      marginBottom: 8,
+    },
+    flex: { flex: 1 },
+    roomName: { fontSize: 14, fontWeight: '800' },
+    roomResident: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+    infoBox: {
+      flexDirection: 'row',
+      gap: 9,
+      padding: 13,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.deepBorder,
+    },
+    infoText: { flex: 1, fontSize: 12, lineHeight: 19 },
+    financeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.deepBorder,
+      paddingBottom: 11,
+      marginBottom: 11,
+    },
+    financeLabel: { flex: 1, fontSize: 12, lineHeight: 18 },
+    financeValue: { fontSize: 12, fontWeight: '900', textAlign: 'right' },
+    twoColumns: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    label: { fontSize: 12, fontWeight: '700', marginBottom: 7, marginTop: 9 },
+    input: {
+      borderWidth: 1,
+      borderRadius: 13,
+      minHeight: 48,
+      paddingHorizontal: 13,
+      paddingVertical: 12,
+    },
+    deadlineBox: {
+      flexDirection: 'row',
+      gap: 9,
+      padding: 13,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: theme.goldBorder,
+      marginTop: 14,
+    },
+    deadlineTitle: { fontSize: 13, fontWeight: '900' },
+    deadlineText: { fontSize: 11, lineHeight: 18, marginTop: 3 },
+    amountRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    categoryIcon: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    categoryBlock: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.deepBorder,
+      paddingBottom: 13,
+      marginBottom: 13,
+    },
+    componentLabel: { flex: 1, minWidth: 0, fontSize: 14, fontWeight: '800' },
+    amountInput: {
+      width: 130,
+      borderWidth: 1,
+      borderRadius: 12,
+      minHeight: 44,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      textAlign: 'right',
+    },
+    automaticRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: theme.deepBorder,
+      padding: 13,
+      marginBottom: 11,
+    },
+    autoHint: { fontSize: 11, marginTop: 2 },
+    dueInputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginTop: 9,
+    },
+    dueLabel: { flex: 1, fontSize: 11, fontWeight: '700' },
+    dueInput: {
+      width: 150,
+      borderWidth: 1,
+      borderRadius: 11,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      fontSize: 12,
+      textAlign: 'center',
+    },
+    totalRow: {
+      borderTopWidth: 1,
+      marginTop: 10,
+      paddingTop: 16,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    totalLabel: { flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 18 },
+    total: {
+      fontSize: 18,
+      fontWeight: '900',
+      textAlign: 'right',
+    },
+    submitButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: 14,
+      minHeight: 52,
+      padding: 15,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    submitDisabled: { opacity: 0.58 },
+    submitText: { fontSize: 15, fontWeight: '900' },
+  });

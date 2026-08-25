@@ -2,8 +2,9 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-export default function Card({ children, style }) {
-  const { theme } = useTheme();
+export default function Card({ children, style, themeOverride }) {
+  const { theme: appTheme } = useTheme();
+  const theme = themeOverride || appTheme;
   return (
     <View
       style={[
@@ -14,7 +15,8 @@ export default function Card({ children, style }) {
           shadowColor: theme.shadow,
         },
         style,
-      ]}>
+      ]}
+    >
       {children}
     </View>
   );

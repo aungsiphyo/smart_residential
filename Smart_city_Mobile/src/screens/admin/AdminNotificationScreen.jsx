@@ -6,7 +6,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import {
+  AppText as Text,
+  AppTextInput as TextInput,
+} from '../../components/AppText';
 import { showPrimeAlert } from '../../services/primeAlert';
 import { useFocusEffect } from '@react-navigation/native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -17,7 +20,8 @@ import {
   fetchResidentsForNotifications,
   sendAdminNotification,
 } from '../../api/adminNotifications';
-import notificationTheme from '../notifications/notificationTheme';
+import { useTheme } from '../../context/ThemeContext';
+import { getNotificationTheme } from '../notifications/notificationTheme';
 
 const TARGETS = [
   { id: 'all', label: 'All residents', icon: 'people-outline' },
@@ -27,7 +31,9 @@ const TARGETS = [
 const NOTIFICATION_TYPES = ['General', 'Announcement', 'Emergency'];
 
 export default function AdminNotificationScreen({ navigation }) {
-  const theme = notificationTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getNotificationTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const [target, setTarget] = useState('all');
   const [residents, setResidents] = useState([]);
   const [selectedResidentIds, setSelectedResidentIds] = useState([]);
@@ -228,7 +234,7 @@ export default function AdminNotificationScreen({ navigation }) {
                 <ActivityIndicator color={theme.primary} />
               </View>
             ) : error ? (
-              <Card style={styles.feedbackCard}>
+              <Card style={styles.feedbackCard} themeOverride={theme}>
                 <Text style={[styles.errorText, { color: theme.danger }]}>
                   {error}
                 </Text>
@@ -301,7 +307,7 @@ export default function AdminNotificationScreen({ navigation }) {
               })
             )}
             {!loadingResidents && !error && filteredResidents.length === 0 ? (
-              <Card style={styles.feedbackCard}>
+              <Card style={styles.feedbackCard} themeOverride={theme}>
                 <Text style={[styles.emptyText, { color: theme.subtext }]}>
                   No residents found
                 </Text>
@@ -413,133 +419,134 @@ export default function AdminNotificationScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 44,
-  },
-  section: {
-    backgroundColor: notificationTheme.card,
-    borderWidth: 1,
-    borderColor: notificationTheme.border,
-    borderRadius: 19,
-    padding: 17,
-    marginBottom: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.25,
-    shadowRadius: 13,
-    elevation: 4,
-  },
-  label: { fontSize: 13, fontWeight: '800', marginBottom: 10 },
-  segmentRow: { flexDirection: 'row', gap: 9 },
-  segment: {
-    flex: 1,
-    minHeight: 48,
-    borderRadius: 13,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    paddingHorizontal: 9,
-  },
-  segmentText: { fontSize: 13, fontWeight: '900' },
-  searchBox: {
-    minHeight: 48,
-    borderRadius: 13,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  searchInput: { flex: 1, fontSize: 14 },
-  selectionSummary: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  selectionText: { fontSize: 12, fontWeight: '800' },
-  clearText: { fontSize: 12, fontWeight: '900' },
-  residentLoading: { paddingVertical: 20 },
-  errorText: { fontSize: 14 },
-  feedbackCard: {
-    backgroundColor: notificationTheme.input,
-    borderColor: notificationTheme.border,
-    borderRadius: 14,
-    marginBottom: 0,
-  },
-  residentRow: {
-    minHeight: 66,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 9,
-  },
-  residentIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#3E3527',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 11,
-  },
-  residentCopy: { flex: 1 },
-  residentName: { fontSize: 14, fontWeight: '800', marginBottom: 3 },
-  residentMeta: { fontSize: 12 },
-  emptyText: { fontSize: 13, textAlign: 'center' },
-  typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
-  typeChip: {
-    borderRadius: 19,
-    borderWidth: 1,
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-  },
-  typeText: { fontSize: 13, fontWeight: '800' },
-  inputWrap: {
-    borderWidth: 1,
-    borderRadius: 13,
-    minHeight: 50,
-    paddingHorizontal: 13,
-    justifyContent: 'center',
-  },
-  input: { fontSize: 15 },
-  textAreaWrap: {
-    borderWidth: 1,
-    borderRadius: 13,
-    paddingHorizontal: 13,
-  },
-  textArea: {
-    minHeight: 122,
-    fontSize: 15,
-    lineHeight: 21,
-    paddingVertical: 13,
-  },
-  sendBtn: {
-    minHeight: 52,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    shadowColor: notificationTheme.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  sendText: { fontSize: 15, fontWeight: '900' },
-  disabled: { opacity: 0.7 },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 18,
+      paddingTop: 20,
+      paddingBottom: 44,
+    },
+    section: {
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 19,
+      padding: 17,
+      marginBottom: 14,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.25,
+      shadowRadius: 13,
+      elevation: 4,
+    },
+    label: { fontSize: 13, fontWeight: '800', marginBottom: 10 },
+    segmentRow: { flexDirection: 'row', gap: 9 },
+    segment: {
+      flex: 1,
+      minHeight: 48,
+      borderRadius: 13,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 7,
+      paddingHorizontal: 9,
+    },
+    segmentText: { fontSize: 13, fontWeight: '900' },
+    searchBox: {
+      minHeight: 48,
+      borderRadius: 13,
+      borderWidth: 1,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    searchInput: { flex: 1, fontSize: 14 },
+    selectionSummary: {
+      minHeight: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    selectionText: { fontSize: 12, fontWeight: '800' },
+    clearText: { fontSize: 12, fontWeight: '900' },
+    residentLoading: { paddingVertical: 20 },
+    errorText: { fontSize: 14 },
+    feedbackCard: {
+      backgroundColor: theme.input,
+      borderColor: theme.border,
+      borderRadius: 14,
+      marginBottom: 0,
+    },
+    residentRow: {
+      minHeight: 66,
+      borderWidth: 1,
+      borderRadius: 14,
+      paddingHorizontal: 13,
+      paddingVertical: 11,
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 9,
+    },
+    residentIcon: {
+      width: 42,
+      height: 42,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.softGoldBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 11,
+    },
+    residentCopy: { flex: 1 },
+    residentName: { fontSize: 14, fontWeight: '800', marginBottom: 3 },
+    residentMeta: { fontSize: 12 },
+    emptyText: { fontSize: 13, textAlign: 'center' },
+    typeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
+    typeChip: {
+      borderRadius: 19,
+      borderWidth: 1,
+      minHeight: 40,
+      justifyContent: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+    },
+    typeText: { fontSize: 13, fontWeight: '800' },
+    inputWrap: {
+      borderWidth: 1,
+      borderRadius: 13,
+      minHeight: 50,
+      paddingHorizontal: 13,
+      justifyContent: 'center',
+    },
+    input: { fontSize: 15 },
+    textAreaWrap: {
+      borderWidth: 1,
+      borderRadius: 13,
+      paddingHorizontal: 13,
+    },
+    textArea: {
+      minHeight: 122,
+      fontSize: 15,
+      lineHeight: 21,
+      paddingVertical: 13,
+    },
+    sendBtn: {
+      minHeight: 52,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    sendText: { fontSize: 15, fontWeight: '900' },
+    disabled: { opacity: 0.7 },
+  });
