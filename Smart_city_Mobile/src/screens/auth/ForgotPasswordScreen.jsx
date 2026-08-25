@@ -683,11 +683,6 @@ const createStyles = theme =>
     },
     inputWrapFocused: {
       borderColor: theme.primary,
-      shadowColor: theme.primary,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.14,
-      shadowRadius: 7,
-      elevation: 2,
     },
     inputIcon: { marginRight: 12 },
     input: {
