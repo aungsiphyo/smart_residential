@@ -15,8 +15,8 @@ export const APP_TABS = Object.freeze([
     name: 'SOS',
     label: '',
     accessibilityLabel: 'Emergency SOS',
-    activeIcon: 'alert',
-    inactiveIcon: 'alert',
+    activeIcon: 'warning',
+    inactiveIcon: 'warning-outline',
     isFloatingAction: true,
   },
   {

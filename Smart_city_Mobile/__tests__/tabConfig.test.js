@@ -13,6 +13,13 @@ describe('shared bottom-tab configuration', () => {
       'Announcements',
       'Profile',
     ]);
+    expect(APP_TABS.find(tab => tab.name === 'SOS')).toEqual(
+      expect.objectContaining({
+        accessibilityLabel: 'Emergency SOS',
+        activeIcon: 'warning',
+        inactiveIcon: 'warning-outline',
+      }),
+    );
   });
 
   it('maps stack flows to their established parent tab', () => {

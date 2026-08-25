@@ -1,3 +1,5 @@
+import { primeLightTheme } from '../../theme/primeTheme';
+
 const darkProfileTheme = {
   mode: 'dark',
   background: '#05080A',
@@ -22,33 +24,11 @@ const darkProfileTheme = {
   statusBar: 'light-content',
 };
 
-const lightProfileTheme = {
-  mode: 'light',
-  background: '#F7F2E8',
-  surface: '#FFFCF6',
-  card: '#FFFDF9',
-  raised: '#F4ECDF',
-  primary: '#B87508',
-  primaryBg: '#F6E8C6',
-  primaryText: '#FFFFFF',
-  text: '#231B13',
-  subtext: '#766B60',
-  border: '#DED3C4',
-  goldBorder: 'rgba(184, 117, 8, 0.56)',
-  iconSurface: 'rgba(184, 117, 8, 0.09)',
-  input: '#F8F1E7',
-  tabBar: '#FFFCF6',
-  tabBarBorder: '#E4D7BF',
-  inactive: '#9A8E80',
-  icon: '#3B3026',
-  switchOff: '#CFC4B5',
-  shadow: '#8A7351',
-  statusBar: 'dark-content',
-};
+const lightProfileTheme = primeLightTheme;
 
 export function getProfileTheme(appTheme) {
   const profileTheme =
-    appTheme.mode === 'dark' ? darkProfileTheme : lightProfileTheme;
+    appTheme?.mode === 'light' ? lightProfileTheme : darkProfileTheme;
 
   return {
     ...profileTheme,

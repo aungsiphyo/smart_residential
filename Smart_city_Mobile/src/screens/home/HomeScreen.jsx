@@ -22,11 +22,14 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 // local chat components removed: using global FloatingChat instead
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { fetchAnnouncements } from '../../api/announcements';
 import { fetchAdvertisements } from '../../api/advertisements';
 import { fetchBills } from '../../api/bills';
 import { fetchProfile } from '../../api/profile';
-import notificationTheme from '../notifications/notificationTheme';
+import notificationTheme, {
+  getNotificationTheme,
+} from '../notifications/notificationTheme';
 
 const HOME_HERO_IMAGE = require('../../assets/home-prime-city-night.png');
 const HOME_BRAND_IMAGE = require('../../assets/app-icon-master.png');
@@ -199,7 +202,7 @@ export function AdvertisementCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [windowStart, setWindowStart] = useState(0);
   const [failedImages, setFailedImages] = useState({});
-  const cardWidth = Math.max(280, width - 36);
+  const cardWidth = Math.max(1, width - 36);
   const snapWidth = cardWidth + 12;
   const visibleAdvertisements = useMemo(
     () => getAdvertisementWindow(advertisements, windowStart),
@@ -470,7 +473,10 @@ export function AdvertisementCarousel({
 }
 
 export default function HomeScreen({ navigation }) {
-  const theme = notificationTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getNotificationTheme(appTheme);
+  const heroTheme =
+    theme.mode === 'light' ? { text: '#FFFFFF', subtext: '#D9D2CA' } : theme;
   const { user, setUser } = useAuth();
   // chat is managed globally by ChatProvider / FloatingChat
   const [currentTime, setCurrentTime] = useState(() => new Date());
@@ -582,7 +588,13 @@ export default function HomeScreen({ navigation }) {
           <>
             <ImageBackground
               source={HOME_HERO_IMAGE}
-              style={styles.hero}
+              style={[
+                styles.hero,
+                {
+                  borderColor: theme.goldBorder,
+                  shadowColor: theme.shadow,
+                },
+              ]}
               imageStyle={styles.heroImage}
               resizeMode="cover"
               accessible
@@ -592,7 +604,7 @@ export default function HomeScreen({ navigation }) {
               <View style={styles.heroLeftScrim} />
               <View style={styles.heroBottomScrim} />
               <View style={styles.heroCopy}>
-                <Text style={[styles.greeting, { color: theme.subtext }]}>
+                <Text style={[styles.greeting, { color: heroTheme.subtext }]}>
                   {timeGreeting}
                 </Text>
                 <Text
@@ -600,11 +612,11 @@ export default function HomeScreen({ navigation }) {
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={0.64}
-                  style={[styles.heading, { color: theme.text }]}
+                  style={[styles.heading, { color: heroTheme.text }]}
                 >
                   Welcome, {displayName}
                 </Text>
-                <Text style={[styles.sub, { color: theme.subtext }]}>
+                <Text style={[styles.sub, { color: heroTheme.subtext }]}>
                   {residenceLabel}
                 </Text>
               </View>
@@ -668,6 +680,7 @@ export default function HomeScreen({ navigation }) {
                 {
                   backgroundColor: theme.surface,
                   borderColor: theme.goldBorder,
+                  shadowColor: theme.shadow,
                 },
               ]}
             >
@@ -685,6 +698,7 @@ export default function HomeScreen({ navigation }) {
                       styles.actionGoldBorder,
                       {
                         backgroundColor: theme.card,
+                        borderColor: theme.goldBorder,
                       },
                     ]}
                     activeOpacity={0.76}
@@ -725,6 +739,7 @@ export default function HomeScreen({ navigation }) {
                   {
                     backgroundColor: theme.card,
                     borderColor: theme.border,
+                    shadowColor: theme.shadow,
                   },
                 ]}
               >
@@ -758,10 +773,10 @@ export default function HomeScreen({ navigation }) {
                   accessibilityLabel="Report now"
                   style={[
                     styles.reportBtn,
-                    styles.reportGoldBorder,
-                    {
-                      backgroundColor: theme.primary,
-                    },
+                    theme.mode === 'light'
+                      ? styles.reportLightBorder
+                      : styles.reportGoldBorder,
+                    { backgroundColor: theme.primary },
                   ]}
                   onPress={() => navigateTo('ReportIssue')}
                   activeOpacity={0.85}
@@ -824,6 +839,7 @@ export default function HomeScreen({ navigation }) {
                   backgroundColor: theme.card,
                   borderColor: theme.border,
                   borderLeftColor: accentColor,
+                  shadowColor: theme.shadow,
                 },
               ]}
             >
@@ -1129,6 +1145,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   reportGoldBorder: { borderColor: '#FFD56A' },
+  reportLightBorder: { borderColor: '#B87508' },
   reportBtnText: { fontSize: 14, fontWeight: '700' },
   latestTitle: {
     fontSize: 19,

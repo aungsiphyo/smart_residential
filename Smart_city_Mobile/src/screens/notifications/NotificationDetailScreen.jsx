@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -6,7 +6,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { AppText as Text, AppTextInput as TextInput } from '../../components/AppText';
+import {
+  AppText as Text,
+  AppTextInput as TextInput,
+} from '../../components/AppText';
 import { showPrimeAlert } from '../../services/primeAlert';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Card from '../../components/Card';
@@ -14,18 +17,21 @@ import ScreenContainer from '../../components/ScreenContainer';
 import { submitNotification } from '../../api/notifications';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useTheme } from '../../context/ThemeContext';
 import {
   containsMyanmarText,
   getMyanmarTextStyle,
 } from '../../theme/typography';
-import notificationTheme from './notificationTheme';
+import { getNotificationTheme } from './notificationTheme';
 import {
   notificationAccent,
   NOTIFICATION_TYPE_ICONS,
 } from './notificationPresentation';
 
 export default function NotificationDetailScreen({ navigation, route }) {
-  const theme = notificationTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getNotificationTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { user } = useAuth();
   const { markOneRead, refreshUnreadCount } = useNotifications();
   const notificationId = route.params?.notificationId;
@@ -168,6 +174,7 @@ export default function NotificationDetailScreen({ navigation, route }) {
         keyboardShouldPersistTaps="handled"
       >
         <Card
+          themeOverride={theme}
           style={[
             styles.detailCard,
             { borderColor: notification.is_read ? theme.border : accentColor },
@@ -263,7 +270,7 @@ export default function NotificationDetailScreen({ navigation, route }) {
         </Card>
 
         {sourceRows.length || sourceMessage ? (
-          <Card style={styles.supportingCard}>
+          <Card style={styles.supportingCard} themeOverride={theme}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Details
             </Text>
@@ -304,7 +311,7 @@ export default function NotificationDetailScreen({ navigation, route }) {
         ) : null}
 
         {canSubmit ? (
-          <Card style={styles.supportingCard}>
+          <Card style={styles.supportingCard} themeOverride={theme}>
             <Text style={[styles.sectionTitle, { color: theme.text }]}>
               Resident response
             </Text>
@@ -363,146 +370,148 @@ export default function NotificationDetailScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 46,
-    gap: 14,
-  },
-  detailCard: {
-    backgroundColor: notificationTheme.card,
-    borderRadius: 21,
-    padding: 19,
-    marginBottom: 0,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 5,
-  },
-  supportingCard: {
-    backgroundColor: notificationTheme.card,
-    borderColor: notificationTheme.border,
-    borderRadius: 19,
-    padding: 18,
-    marginBottom: 0,
-  },
-  identityRow: { flexDirection: 'row', alignItems: 'center' },
-  iconWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 17,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-  identityCopy: { flex: 1, alignItems: 'flex-start' },
-  type: {
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 7,
-  },
-  myanmarType: { lineHeight: 22 },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    borderRadius: 9,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  statusText: { fontSize: 11, fontWeight: '800' },
-  divider: { height: 1, marginVertical: 18 },
-  title: {
-    fontSize: 25,
-    lineHeight: 32,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  myanmarTitle: { lineHeight: 40 },
-  body: { fontSize: 16, lineHeight: 25, marginTop: 12 },
-  myanmarBody: { lineHeight: 30 },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 17,
-  },
-  time: { fontSize: 12, fontWeight: '600' },
-  sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 12 },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 14,
-    borderBottomWidth: 1,
-    paddingVertical: 11,
-  },
-  detailLabel: { flex: 0.36, fontSize: 12, lineHeight: 18 },
-  detailValue: {
-    flex: 0.64,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  myanmarDetailValue: { lineHeight: 24 },
-  sourceMessage: { fontSize: 13, lineHeight: 20, marginTop: 14 },
-  myanmarSourceMessage: { lineHeight: 24 },
-  input: {
-    minHeight: 96,
-    borderWidth: 1,
-    borderRadius: 13,
-    padding: 13,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlignVertical: 'top',
-    marginBottom: 12,
-  },
-  myanmarInput: { lineHeight: 26 },
-  submitButton: {
-    minHeight: 50,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 14,
-  },
-  submitText: { fontSize: 14, fontWeight: '900' },
-  unavailable: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-  },
-  unavailableIcon: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: notificationTheme.card,
-    borderWidth: 1,
-    borderColor: notificationTheme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-  },
-  unavailableTitle: { fontSize: 21, fontWeight: '900', marginBottom: 8 },
-  unavailableText: {
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  backAction: {
-    minHeight: 48,
-    borderRadius: 13,
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-  },
-  backActionText: { fontSize: 14, fontWeight: '900' },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 18,
+      paddingTop: 20,
+      paddingBottom: 46,
+      gap: 14,
+    },
+    detailCard: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderRadius: 21,
+      padding: 19,
+      marginBottom: 0,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      elevation: 5,
+    },
+    supportingCard: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderRadius: 19,
+      padding: 18,
+      marginBottom: 0,
+    },
+    identityRow: { flexDirection: 'row', alignItems: 'center' },
+    iconWrap: {
+      width: 58,
+      height: 58,
+      borderRadius: 17,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
+    identityCopy: { flex: 1, alignItems: 'flex-start' },
+    type: {
+      fontSize: 12,
+      fontWeight: '900',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+      marginBottom: 7,
+    },
+    myanmarType: { lineHeight: 22 },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      borderRadius: 9,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+    },
+    statusText: { fontSize: 11, fontWeight: '800' },
+    divider: { height: 1, marginVertical: 18 },
+    title: {
+      fontSize: 25,
+      lineHeight: 32,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+    },
+    myanmarTitle: { lineHeight: 40 },
+    body: { fontSize: 16, lineHeight: 25, marginTop: 12 },
+    myanmarBody: { lineHeight: 30 },
+    timeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginTop: 17,
+    },
+    time: { fontSize: 12, fontWeight: '600' },
+    sectionTitle: { fontSize: 18, fontWeight: '900', marginBottom: 12 },
+    detailRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: 14,
+      borderBottomWidth: 1,
+      paddingVertical: 11,
+    },
+    detailLabel: { flex: 0.36, fontSize: 12, lineHeight: 18 },
+    detailValue: {
+      flex: 0.64,
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight: '700',
+      textAlign: 'right',
+    },
+    myanmarDetailValue: { lineHeight: 24 },
+    sourceMessage: { fontSize: 13, lineHeight: 20, marginTop: 14 },
+    myanmarSourceMessage: { lineHeight: 24 },
+    input: {
+      minHeight: 96,
+      borderWidth: 1,
+      borderRadius: 13,
+      padding: 13,
+      fontSize: 14,
+      lineHeight: 20,
+      textAlignVertical: 'top',
+      marginBottom: 12,
+    },
+    myanmarInput: { lineHeight: 26 },
+    submitButton: {
+      minHeight: 50,
+      borderRadius: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingHorizontal: 14,
+    },
+    submitText: { fontSize: 14, fontWeight: '900' },
+    unavailable: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 28,
+    },
+    unavailableIcon: {
+      width: 68,
+      height: 68,
+      borderRadius: 20,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+    },
+    unavailableTitle: { fontSize: 21, fontWeight: '900', marginBottom: 8 },
+    unavailableText: {
+      fontSize: 14,
+      lineHeight: 21,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    backAction: {
+      minHeight: 48,
+      borderRadius: 13,
+      justifyContent: 'center',
+      paddingHorizontal: 22,
+    },
+    backActionText: { fontSize: 14, fontWeight: '900' },
+  });

@@ -15,6 +15,7 @@ import ScreenContainer from '../../components/ScreenContainer';
 import { fetchParkingStatus } from '../../api/parking';
 import { subscribeToParkingUpdates } from '../../services/parkingSocket';
 import { useTheme } from '../../context/ThemeContext';
+import { getParkingTheme } from './parkingTheme';
 
 const PARKING_TYPES = [
   {
@@ -47,13 +48,28 @@ function formatUpdatedAt(value) {
 function ParkingCard({ definition, parking, theme }) {
   if (!parking) {
     return (
-      <Card>
+      <Card
+        style={[
+          styles.parkingCard,
+          {
+            backgroundColor: theme.card,
+            borderColor: theme.border,
+            shadowColor: theme.shadow,
+          },
+        ]}
+      >
         <View style={styles.unavailableRow}>
-          <Ionicons
-            name={definition.icon}
-            size={26}
-            color={theme.inactive}
-          />
+          <View
+            style={[
+              styles.cardIcon,
+              {
+                backgroundColor: theme.iconSurface,
+                borderColor: theme.goldBorder,
+              },
+            ]}
+          >
+            <Ionicons name={definition.icon} size={27} color={theme.primary} />
+          </View>
           <View style={styles.flex}>
             <Text style={[styles.cardTitle, { color: theme.text }]}>
               {definition.title}
@@ -76,14 +92,30 @@ function ParkingCard({ definition, parking, theme }) {
   const isFull = available <= 0;
   const statusColor = isFull ? theme.danger : theme.success;
   const statusBackground = isFull ? theme.dangerBg : theme.successBg;
+  const occupancyPercent = Math.round(occupancy * 100);
 
   return (
-    <Card>
+    <Card
+      style={[
+        styles.parkingCard,
+        {
+          backgroundColor: theme.card,
+          borderColor: theme.border,
+          shadowColor: theme.shadow,
+        },
+      ]}
+    >
       <View style={styles.cardHeader}>
         <View
-          style={[styles.cardIcon, { backgroundColor: theme.primary + '1F' }]}
+          style={[
+            styles.cardIcon,
+            {
+              backgroundColor: theme.iconSurface,
+              borderColor: theme.goldBorder,
+            },
+          ]}
         >
-          <Ionicons name={definition.icon} size={25} color={theme.primary} />
+          <Ionicons name={definition.icon} size={28} color={theme.primary} />
         </View>
         <View style={styles.flex}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>
@@ -93,7 +125,20 @@ function ParkingCard({ definition, parking, theme }) {
             {definition.subtitle}
           </Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: statusBackground }]}>
+        <View
+          accessible
+          accessibilityRole="text"
+          accessibilityLabel={`${definition.title} status: ${
+            isFull ? 'Full' : 'Available'
+          }`}
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor: statusBackground,
+              borderColor: `${statusColor}55`,
+            },
+          ]}
+        >
           <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
           <Text style={[styles.statusText, { color: statusColor }]}>
             {isFull ? 'Full' : 'Available'}
@@ -101,8 +146,21 @@ function ParkingCard({ definition, parking, theme }) {
         </View>
       </View>
 
-      <View style={[styles.availabilityBox, { backgroundColor: theme.input }]}>
-        <Text style={[styles.availableNumber, { color: statusColor }]}>
+      <View
+        style={[
+          styles.availabilityBox,
+          {
+            backgroundColor: theme.input,
+            borderColor: theme.border,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.availableNumber,
+            { color: isFull ? theme.danger : theme.primary },
+          ]}
+        >
           {available}
         </Text>
         <View style={styles.flex}>
@@ -115,13 +173,19 @@ function ParkingCard({ definition, parking, theme }) {
         </View>
       </View>
 
-      <View style={[styles.progressTrack, { backgroundColor: theme.border }]}>
+      <View
+        accessible
+        accessibilityRole="progressbar"
+        accessibilityLabel={`${definition.title} occupancy`}
+        accessibilityValue={{ min: 0, max: 100, now: occupancyPercent }}
+        style={[styles.progressTrack, { backgroundColor: theme.border }]}
+      >
         <View
           style={[
             styles.progressFill,
             {
               backgroundColor: isFull ? theme.danger : theme.primary,
-              width: `${Math.round(occupancy * 100)}%`,
+              width: `${occupancyPercent}%`,
             },
           ]}
         />
@@ -132,8 +196,15 @@ function ParkingCard({ definition, parking, theme }) {
           ['Total', total],
           ['Occupied', used],
           ['Maintenance', maintenance],
-        ].map(([label, value]) => (
-          <View key={label} style={styles.statItem}>
+        ].map(([label, value], index) => (
+          <View
+            key={label}
+            style={[
+              styles.statItem,
+              index > 0 && styles.statDivider,
+              index > 0 && { borderLeftColor: theme.border },
+            ]}
+          >
             <Text style={[styles.statValue, { color: theme.text }]}>
               {value}
             </Text>
@@ -145,7 +216,11 @@ function ParkingCard({ definition, parking, theme }) {
       </View>
 
       <View style={[styles.updatedRow, { borderTopColor: theme.border }]}>
-        <Ionicons name="time-outline" size={14} color={theme.inactive} />
+        <View
+          style={[styles.updatedIcon, { backgroundColor: theme.iconSurface }]}
+        >
+          <Ionicons name="time-outline" size={15} color={theme.primary} />
+        </View>
         <Text style={[styles.updatedText, { color: theme.inactive }]}>
           Updated {formatUpdatedAt(parking.updatedAt || parking.updated_at)}
         </Text>
@@ -155,7 +230,8 @@ function ParkingCard({ definition, parking, theme }) {
 }
 
 export default function ParkingScreen({ navigation }) {
-  const { theme } = useTheme();
+  const { theme: appTheme } = useTheme();
+  const theme = getParkingTheme(appTheme);
   const [parkingItems, setParkingItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,18 +272,15 @@ export default function ParkingScreen({ navigation }) {
 
   useEffect(
     () =>
-      subscribeToParkingUpdates(
-        updated => {
-          if (!updated?.type) return;
-          setParkingItems(current => {
-            const withoutUpdated = current.filter(
-              item => item.type !== updated.type,
-            );
-            return [...withoutUpdated, updated];
-          });
-        },
-        setRealtimeConnected,
-      ),
+      subscribeToParkingUpdates(updated => {
+        if (!updated?.type) return;
+        setParkingItems(current => {
+          const withoutUpdated = current.filter(
+            item => item.type !== updated.type,
+          );
+          return [...withoutUpdated, updated];
+        });
+      }, setRealtimeConnected),
     [],
   );
 
@@ -217,9 +290,13 @@ export default function ParkingScreen({ navigation }) {
       topBarVariant="stack"
       title="Parking Slots"
       showBottomNav
+      themeOverride={theme}
     >
       <ScrollView
+        style={{ backgroundColor: theme.background }}
         contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -239,12 +316,20 @@ export default function ParkingScreen({ navigation }) {
             </Text>
           </View>
           <View
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`Parking updates: ${
+              realtimeConnected ? 'Live' : 'Refreshing'
+            }`}
             style={[
               styles.liveBadge,
               {
                 backgroundColor: realtimeConnected
                   ? theme.successBg
                   : theme.input,
+                borderColor: realtimeConnected
+                  ? `${theme.success}55`
+                  : theme.border,
               },
             ]}
           >
@@ -272,13 +357,40 @@ export default function ParkingScreen({ navigation }) {
         </View>
 
         {error ? (
-          <View style={[styles.errorBox, { backgroundColor: theme.dangerBg }]}>
-            <Ionicons name="alert-circle-outline" size={20} color={theme.danger} />
+          <View
+            accessibilityLiveRegion="polite"
+            style={[
+              styles.errorBox,
+              {
+                backgroundColor: theme.dangerBg,
+                borderColor: `${theme.danger}66`,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.errorIcon,
+                { backgroundColor: `${theme.danger}18` },
+              ]}
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={22}
+                color={theme.danger}
+              />
+            </View>
             <View style={styles.flex}>
               <Text style={[styles.errorText, { color: theme.danger }]}>
                 {error}
               </Text>
-              <TouchableOpacity onPress={() => loadParking()}>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => loadParking()}
+                activeOpacity={0.72}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading parking availability"
+              >
                 <Text style={[styles.retryText, { color: theme.primary }]}>
                   Retry
                 </Text>
@@ -288,11 +400,22 @@ export default function ParkingScreen({ navigation }) {
         ) : null}
 
         {loading && !parkingItems.length ? (
-          <ActivityIndicator
-            style={styles.loader}
-            size="large"
-            color={theme.primary}
-          />
+          <View
+            style={[
+              styles.loader,
+              {
+                backgroundColor: theme.card,
+                borderColor: theme.border,
+              },
+            ]}
+            accessibilityLiveRegion="polite"
+          >
+            <ActivityIndicator
+              size="large"
+              color={theme.primary}
+              accessibilityLabel="Loading parking availability"
+            />
+          </View>
         ) : (
           PARKING_TYPES.map(definition => (
             <ParkingCard
@@ -304,12 +427,31 @@ export default function ParkingScreen({ navigation }) {
           ))
         )}
 
-        <View style={[styles.infoBox, { backgroundColor: theme.primaryBg }]}>
-          <Ionicons
-            name="information-circle-outline"
-            size={20}
-            color={theme.primary}
-          />
+        <View
+          style={[
+            styles.infoBox,
+            {
+              backgroundColor: theme.card,
+              borderColor: theme.border,
+              shadowColor: theme.shadow,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.infoIcon,
+              {
+                backgroundColor: theme.iconSurface,
+                borderColor: theme.goldBorder,
+              },
+            ]}
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={22}
+              color={theme.primary}
+            />
+          </View>
           <Text style={[styles.infoText, { color: theme.text }]}>
             Availability can change as vehicles enter or leave. Pull down to
             refresh if your connection is temporarily offline.
@@ -321,37 +463,194 @@ export default function ParkingScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40, gap: 13 },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 18,
+    paddingTop: 24,
+    paddingBottom: 124,
+  },
   flex: { flex: 1 },
-  headingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  heading: { fontSize: 23, fontWeight: '900', marginBottom: 5 },
-  headingSubtitle: { fontSize: 13, lineHeight: 19 },
-  liveBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
-  liveText: { fontSize: 11, fontWeight: '800' },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  cardIcon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  cardTitle: { fontSize: 17, fontWeight: '900', marginBottom: 3 },
-  cardSubtitle: { fontSize: 12, lineHeight: 17 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 6 },
+  headingRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 22,
+  },
+  heading: {
+    fontSize: 27,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -0.45,
+    marginBottom: 7,
+  },
+  headingSubtitle: {
+    maxWidth: 430,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  liveBadge: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    marginTop: 2,
+  },
+  liveText: { fontSize: 12, fontWeight: '800' },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  parkingCard: {
+    padding: 18,
+    borderRadius: 22,
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  cardIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '900',
+    marginBottom: 4,
+  },
+  cardSubtitle: { fontSize: 12, lineHeight: 18 },
+  statusBadge: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+  },
   statusText: { fontSize: 10, fontWeight: '900' },
-  availabilityBox: { flexDirection: 'row', alignItems: 'center', gap: 13, borderRadius: 13, padding: 14, marginTop: 16 },
-  availableNumber: { fontSize: 40, lineHeight: 44, fontWeight: '900' },
-  availableLabel: { fontSize: 15, fontWeight: '800' },
-  availableMeta: { fontSize: 11, marginTop: 3 },
-  progressTrack: { height: 7, borderRadius: 4, marginTop: 14, overflow: 'hidden' },
+  availabilityBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    marginTop: 18,
+  },
+  availableNumber: {
+    minWidth: 48,
+    fontSize: 46,
+    lineHeight: 50,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+  },
+  availableLabel: { fontSize: 15, lineHeight: 20, fontWeight: '800' },
+  availableMeta: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    marginTop: 16,
+    overflow: 'hidden',
+  },
   progressFill: { height: '100%', borderRadius: 4 },
-  statsRow: { flexDirection: 'row', marginTop: 15 },
-  statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 17, fontWeight: '900' },
-  statLabel: { fontSize: 10, marginTop: 3 },
-  updatedRow: { flexDirection: 'row', alignItems: 'center', gap: 5, borderTopWidth: 1, paddingTop: 11, marginTop: 13 },
-  updatedText: { fontSize: 10 },
-  unavailableRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 70 },
-  errorBox: { flexDirection: 'row', gap: 9, borderRadius: 12, padding: 12 },
-  errorText: { fontSize: 12, lineHeight: 17 },
-  retryText: { fontSize: 12, fontWeight: '900', marginTop: 5 },
-  loader: { paddingVertical: 70 },
-  infoBox: { flexDirection: 'row', gap: 9, borderRadius: 12, padding: 12 },
-  infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  statsRow: { flexDirection: 'row', marginTop: 18 },
+  statItem: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+  },
+  statDivider: { borderLeftWidth: 1 },
+  statValue: { fontSize: 18, lineHeight: 23, fontWeight: '900' },
+  statLabel: { fontSize: 10, lineHeight: 15, marginTop: 3 },
+  updatedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderTopWidth: 1,
+    paddingTop: 12,
+    marginTop: 15,
+  },
+  updatedIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updatedText: { flex: 1, fontSize: 10, lineHeight: 15 },
+  unavailableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    minHeight: 82,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 11,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 16,
+  },
+  errorIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: { fontSize: 13, lineHeight: 19 },
+  retryButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingRight: 18,
+  },
+  retryText: { fontSize: 13, fontWeight: '900' },
+  loader: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 15,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoText: { flex: 1, fontSize: 12, lineHeight: 19, paddingTop: 1 },
 });

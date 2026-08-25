@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { AppText as Text } from '../../components/AppText';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import { useAuth } from '../../context/AuthContext';
-import notificationTheme from '../notifications/notificationTheme';
+import { useTheme } from '../../context/ThemeContext';
+import { getNotificationTheme } from '../notifications/notificationTheme';
 import {
   getAnnouncementStatusPresentation,
   getAnnouncementTypeMeta,
@@ -12,7 +13,9 @@ import {
 } from './AnnouncementsScreen';
 
 export default function AnnouncementDetailScreen({ navigation, route }) {
-  const theme = notificationTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getNotificationTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { user } = useAuth();
   const announcementId = route.params?.announcementId;
   const announcement = route.params?.announcement;
@@ -174,186 +177,187 @@ export default function AnnouncementDetailScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 46,
-    gap: 14,
-  },
-  detailCard: {
-    backgroundColor: notificationTheme.card,
-    borderColor: notificationTheme.border,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    borderRadius: 21,
-    padding: 19,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 5,
-  },
-  archivedCard: {
-    backgroundColor: notificationTheme.elevated,
-  },
-  identityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconWrap: {
-    width: 58,
-    height: 58,
-    flexShrink: 0,
-    borderRadius: 17,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-  identityCopy: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'flex-start',
-  },
-  eyebrow: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '900',
-    letterSpacing: 0.9,
-    marginBottom: 7,
-  },
-  typeBadge: {
-    maxWidth: '100%',
-    minHeight: 29,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 9,
-    borderWidth: 1,
-  },
-  typeText: {
-    flexShrink: 1,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '800',
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginVertical: 18,
-  },
-  title: {
-    fontSize: 25,
-    lineHeight: 34,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  message: {
-    marginTop: 12,
-    fontSize: 16,
-    lineHeight: 27,
-  },
-  dateRow: {
-    marginTop: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  date: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  metadataCard: {
-    backgroundColor: notificationTheme.card,
-    borderColor: notificationTheme.border,
-    borderWidth: 1,
-    borderRadius: 19,
-    padding: 18,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '900',
-    marginBottom: 9,
-  },
-  metadataRow: {
-    minHeight: 55,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 10,
-  },
-  metadataLabel: {
-    flexShrink: 0,
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  metadataValue: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 13,
-    lineHeight: 21,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  statusBadge: {
-    maxWidth: '68%',
-    minHeight: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-    borderRadius: 9,
-  },
-  statusText: {
-    flexShrink: 1,
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
-  unavailable: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-  },
-  unavailableIcon: {
-    width: 68,
-    height: 68,
-    borderRadius: 20,
-    backgroundColor: notificationTheme.card,
-    borderWidth: 1,
-    borderColor: notificationTheme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-  },
-  unavailableTitle: {
-    fontSize: 21,
-    lineHeight: 28,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  unavailableText: {
-    fontSize: 14,
-    lineHeight: 22,
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  backAction: {
-    minHeight: 48,
-    borderRadius: 13,
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-  },
-  backActionText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '900',
-  },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    container: {
+      paddingHorizontal: 18,
+      paddingTop: 20,
+      paddingBottom: 46,
+      gap: 14,
+    },
+    detailCard: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderWidth: 1,
+      borderLeftWidth: 3,
+      borderRadius: 21,
+      padding: 19,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.3,
+      shadowRadius: 16,
+      elevation: 5,
+    },
+    archivedCard: {
+      backgroundColor: theme.elevated,
+    },
+    identityRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    iconWrap: {
+      width: 58,
+      height: 58,
+      flexShrink: 0,
+      borderRadius: 17,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginRight: 13,
+    },
+    identityCopy: {
+      flex: 1,
+      minWidth: 0,
+      alignItems: 'flex-start',
+    },
+    eyebrow: {
+      fontSize: 11,
+      lineHeight: 16,
+      fontWeight: '900',
+      letterSpacing: 0.9,
+      marginBottom: 7,
+    },
+    typeBadge: {
+      maxWidth: '100%',
+      minHeight: 29,
+      justifyContent: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 9,
+      borderWidth: 1,
+    },
+    typeText: {
+      flexShrink: 1,
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '800',
+    },
+    divider: {
+      height: StyleSheet.hairlineWidth,
+      marginVertical: 18,
+    },
+    title: {
+      fontSize: 25,
+      lineHeight: 34,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+    },
+    message: {
+      marginTop: 12,
+      fontSize: 16,
+      lineHeight: 27,
+    },
+    dateRow: {
+      marginTop: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    date: {
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight: '600',
+    },
+    metadataCard: {
+      backgroundColor: theme.card,
+      borderColor: theme.border,
+      borderWidth: 1,
+      borderRadius: 19,
+      padding: 18,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      lineHeight: 24,
+      fontWeight: '900',
+      marginBottom: 9,
+    },
+    metadataRow: {
+      minHeight: 55,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      paddingVertical: 10,
+    },
+    metadataLabel: {
+      flexShrink: 0,
+      fontSize: 13,
+      lineHeight: 19,
+    },
+    metadataValue: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 13,
+      lineHeight: 21,
+      fontWeight: '700',
+      textAlign: 'right',
+    },
+    statusBadge: {
+      maxWidth: '68%',
+      minHeight: 30,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+      paddingHorizontal: 9,
+      paddingVertical: 6,
+      borderRadius: 9,
+    },
+    statusText: {
+      flexShrink: 1,
+      fontSize: 11,
+      lineHeight: 16,
+      fontWeight: '800',
+    },
+    unavailable: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 28,
+    },
+    unavailableIcon: {
+      width: 68,
+      height: 68,
+      borderRadius: 20,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 18,
+    },
+    unavailableTitle: {
+      fontSize: 21,
+      lineHeight: 28,
+      fontWeight: '900',
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    unavailableText: {
+      fontSize: 14,
+      lineHeight: 22,
+      textAlign: 'center',
+      marginBottom: 20,
+    },
+    backAction: {
+      minHeight: 48,
+      borderRadius: 13,
+      justifyContent: 'center',
+      paddingHorizontal: 22,
+    },
+    backActionText: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '900',
+    },
+  });

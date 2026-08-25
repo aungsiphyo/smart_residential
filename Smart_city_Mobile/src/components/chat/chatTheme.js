@@ -1,4 +1,6 @@
-const chatTheme = {
+import { primeLightTheme } from '../../theme/primeTheme';
+
+export const darkChatTheme = {
   mode: 'dark',
   background: '#05080A',
   surface: '#080C0F',
@@ -28,4 +30,15 @@ const chatTheme = {
   shadow: '#000000',
 };
 
-export default chatTheme;
+export const lightChatTheme = {
+  ...primeLightTheme,
+  assistantBubble: '#F5F1EA',
+  userBubble: '#D99516',
+  primarySoft: '#D99516',
+};
+
+export function getChatTheme(appTheme) {
+  return appTheme?.mode === 'light' ? lightChatTheme : darkChatTheme;
+}
+
+export default darkChatTheme;

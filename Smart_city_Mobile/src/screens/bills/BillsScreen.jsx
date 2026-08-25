@@ -15,8 +15,9 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import ScreenContainer from '../../components/ScreenContainer';
 import Card from '../../components/Card';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { fetchBills } from '../../api/bills';
-import billTheme from './billTheme';
+import { getBillTheme } from './billTheme';
 
 const SERVICE_ICONS = {
   Water: 'water-outline',
@@ -90,7 +91,9 @@ function getStatusTheme(status, theme) {
 }
 
 export default function BillsScreen({ navigation }) {
-  const theme = billTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getBillTheme(appTheme);
+  const styles = useMemo(() => createStyles(theme), [theme]);
   const { user } = useAuth();
   const [bills, setBills] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -142,8 +145,13 @@ export default function BillsScreen({ navigation }) {
       <TouchableOpacity
         onPress={() => setSelectedBill(item)}
         activeOpacity={0.84}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${item.title || `${service} bill`} details`}
       >
-        <Card style={styles.billCard}>
+        <Card
+          style={[styles.billCard, isAdmin && styles.adminBillCard]}
+          themeOverride={theme}
+        >
           <View style={styles.row}>
             <View
               style={[
@@ -224,9 +232,14 @@ export default function BillsScreen({ navigation }) {
               </View>
             </View>
           </View>
-          <Text style={[styles.detailsHint, { color: theme.primary }]}>
-            View bill details
-          </Text>
+          <View
+            style={[styles.detailsAction, { borderTopColor: theme.border }]}
+          >
+            <Text style={[styles.detailsHint, { color: theme.primary }]}>
+              View bill details
+            </Text>
+            <Ionicons name="chevron-forward" size={17} color={theme.primary} />
+          </View>
         </Card>
       </TouchableOpacity>
     );
@@ -249,6 +262,7 @@ export default function BillsScreen({ navigation }) {
         data={bills}
         keyExtractor={item => String(item._id)}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -275,12 +289,38 @@ export default function BillsScreen({ navigation }) {
                   { backgroundColor: theme.card, borderColor: theme.primary },
                 ]}
               >
-                <Text style={[styles.summaryLabel, { color: theme.subtext }]}>
-                  Outstanding
-                </Text>
-                <Text style={[styles.summaryValue, { color: theme.text }]}>
-                  {formatAmount(outstandingTotal)}
-                </Text>
+                <View style={styles.summaryContent}>
+                  <View
+                    style={[
+                      styles.summaryIcon,
+                      {
+                        backgroundColor: theme.primaryBg,
+                        borderColor: theme.goldBorder,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name="wallet-outline"
+                      size={27}
+                      color={theme.primary}
+                    />
+                  </View>
+                  <View style={styles.summaryCopy}>
+                    <Text
+                      style={[styles.summaryLabel, { color: theme.subtext }]}
+                    >
+                      Outstanding
+                    </Text>
+                    <Text
+                      style={[styles.summaryValue, { color: theme.text }]}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.72}
+                      numberOfLines={1}
+                    >
+                      {formatAmount(outstandingTotal)}
+                    </Text>
+                  </View>
+                </View>
               </View>
             ) : null}
             {isAdmin ? (
@@ -291,6 +331,8 @@ export default function BillsScreen({ navigation }) {
                     { backgroundColor: theme.primary },
                   ]}
                   onPress={() => navigation.navigate('CreateMonthlyBill')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Create bill"
                 >
                   <Ionicons
                     name="add-circle-outline"
@@ -312,6 +354,8 @@ export default function BillsScreen({ navigation }) {
                     { backgroundColor: theme.card, borderColor: theme.border },
                   ]}
                   onPress={() => navigation.navigate('AdminPaymentReview')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Verify payments"
                 >
                   <Ionicons
                     name="shield-checkmark-outline"
@@ -396,7 +440,12 @@ export default function BillsScreen({ navigation }) {
                   {selectedBill?.title || 'Service bill'}
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setSelectedBill(null)}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setSelectedBill(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close bill details"
+              >
                 <Ionicons name="close" size={26} color={theme.icon} />
               </TouchableOpacity>
             </View>
@@ -579,214 +628,250 @@ export default function BillsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  list: {
-    paddingHorizontal: 18,
-    paddingTop: 22,
-    paddingBottom: 36,
-    flexGrow: 1,
-  },
-  header: { marginBottom: 10 },
-  heading: {
-    fontSize: 31,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-    marginBottom: 7,
-  },
-  sub: { fontSize: 14, lineHeight: 20, marginBottom: 18 },
-  billCard: {
-    backgroundColor: billTheme.card,
-    borderColor: billTheme.border,
-    borderRadius: 20,
-    padding: 17,
-    marginBottom: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.32,
-    shadowRadius: 16,
-    elevation: 5,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#5B3C08',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    marginTop: 6,
-  },
-  categoryText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
-  categorySummary: { fontSize: 12, fontWeight: '900', marginTop: 8 },
-  summary: {
-    borderRadius: 22,
-    borderWidth: 1.5,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    marginBottom: 14,
-    shadowColor: billTheme.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.13,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  summaryLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-    marginBottom: 5,
-  },
-  summaryValue: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
-  adminActions: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  adminButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    borderRadius: 13,
-    minHeight: 48,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-  },
-  adminButtonText: { fontSize: 12, fontWeight: '900' },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 13,
-    marginBottom: 14,
-    backgroundColor: billTheme.dangerBg,
-  },
-  errorText: { flex: 1, fontSize: 13, lineHeight: 19 },
-  row: { flexDirection: 'row', alignItems: 'flex-start' },
-  serviceIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#3E3527',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 13,
-  },
-  details: { flex: 1, paddingRight: 8 },
-  service: { fontSize: 16, fontWeight: '800', marginBottom: 5 },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  due: { flex: 1, fontSize: 12, lineHeight: 17 },
-  right: { alignItems: 'flex-end', maxWidth: '40%' },
-  amount: {
-    fontSize: 17,
-    fontWeight: '900',
-    marginBottom: 8,
-    textAlign: 'right',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 9,
-  },
-  status: { fontSize: 11, fontWeight: '800' },
-  detailsHint: { fontSize: 12, fontWeight: '800', marginTop: 12 },
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: '#000000AA',
-  },
-  sheet: {
-    maxHeight: '88%',
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 16,
-  },
-  sheetTitle: { fontSize: 23, fontWeight: '900', letterSpacing: -0.4 },
-  sheetSubtitle: { fontSize: 13, lineHeight: 18, marginTop: 4 },
-  sheetContent: { paddingHorizontal: 20, paddingBottom: 42 },
-  detailSummary: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#3E3527',
-    padding: 17,
-  },
-  detailLabel: { fontSize: 11, fontWeight: '800', marginBottom: 6 },
-  detailTotal: { fontSize: 29, fontWeight: '900', letterSpacing: -0.5 },
-  breakdownTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    marginTop: 22,
-    marginBottom: 5,
-  },
-  breakdownRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    borderBottomWidth: 1,
-    paddingVertical: 13,
-  },
-  breakdownLabel: { flex: 1, fontSize: 13 },
-  breakdownAmount: { fontSize: 13, fontWeight: '800' },
-  adminDetail: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#252C30',
-    padding: 15,
-    marginTop: 14,
-  },
-  adminDetailText: { fontSize: 13, fontWeight: '700', marginBottom: 12 },
-  cutoffWarning: {
-    flexDirection: 'row',
-    gap: 9,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#5B3C08',
-    padding: 14,
-    marginTop: 12,
-  },
-  warningTitle: { fontSize: 13, fontWeight: '800' },
-  warningText: { fontSize: 12, lineHeight: 18, marginTop: 3 },
-  payButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 14,
-    minHeight: 52,
-    padding: 15,
-    marginTop: 20,
-    shadowColor: billTheme.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  payButtonText: { fontSize: 16, fontWeight: '900' },
-  centered: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
-    gap: 10,
-  },
-  emptyText: { fontSize: 15, textAlign: 'center' },
-  retryButton: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10 },
-  retryText: { fontSize: 14, fontWeight: '700' },
-});
+const createStyles = theme =>
+  StyleSheet.create({
+    list: {
+      paddingHorizontal: 20,
+      paddingTop: 24,
+      paddingBottom: 44,
+      flexGrow: 1,
+    },
+    header: { marginBottom: 12 },
+    heading: {
+      fontSize: 32,
+      fontWeight: '900',
+      letterSpacing: -0.8,
+      marginBottom: 7,
+    },
+    sub: { fontSize: 14, lineHeight: 20, marginBottom: 18 },
+    billCard: {
+      borderRadius: 22,
+      padding: 16,
+      marginBottom: 15,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.22,
+      shadowRadius: 14,
+      elevation: 4,
+    },
+    adminBillCard: { borderColor: theme.deepBorder },
+    categoryBadge: {
+      alignSelf: 'flex-start',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.goldBorder,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      marginTop: 6,
+    },
+    categoryText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.2 },
+    categorySummary: { fontSize: 12, fontWeight: '900', marginTop: 8 },
+    summary: {
+      borderRadius: 22,
+      borderWidth: 1,
+      paddingHorizontal: 18,
+      paddingVertical: 19,
+      marginBottom: 16,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    summaryContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    summaryIcon: {
+      width: 58,
+      height: 58,
+      borderRadius: 18,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    summaryCopy: { flex: 1, minWidth: 0 },
+    summaryLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      letterSpacing: 0.2,
+      marginBottom: 5,
+    },
+    summaryValue: { fontSize: 28, fontWeight: '900', letterSpacing: -0.6 },
+    adminActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 16,
+    },
+    adminButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      borderWidth: 1,
+      borderColor: 'transparent',
+      borderRadius: 13,
+      minWidth: 142,
+      minHeight: 52,
+      paddingHorizontal: 12,
+      paddingVertical: 12,
+    },
+    adminButtonText: { fontSize: 13, fontWeight: '900', textAlign: 'center' },
+    errorBanner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 13,
+      marginBottom: 14,
+      backgroundColor: theme.dangerBg,
+    },
+    errorText: { flex: 1, fontSize: 13, lineHeight: 19 },
+    row: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    serviceIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.softGoldBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    details: { flex: 1, minWidth: 0 },
+    service: { fontSize: 16, fontWeight: '900', lineHeight: 21 },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      marginBottom: 4,
+    },
+    due: { flex: 1, fontSize: 12, lineHeight: 17 },
+    right: { alignItems: 'flex-end', maxWidth: '38%', minWidth: 84 },
+    amount: {
+      fontSize: 17,
+      fontWeight: '900',
+      marginBottom: 8,
+      textAlign: 'right',
+    },
+    statusBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+      borderRadius: 9,
+    },
+    status: { fontSize: 11, fontWeight: '800' },
+    detailsAction: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderTopWidth: StyleSheet.hairlineWidth,
+      marginTop: 13,
+      paddingTop: 12,
+    },
+    detailsHint: { fontSize: 12, fontWeight: '900' },
+    overlay: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: theme.overlay || '#000000AA',
+    },
+    sheet: {
+      maxHeight: '88%',
+      borderTopLeftRadius: 26,
+      borderTopRightRadius: 26,
+      borderWidth: 1,
+      borderBottomWidth: 0,
+    },
+    sheetHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 16,
+    },
+    closeButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sheetTitle: { fontSize: 23, fontWeight: '900', letterSpacing: -0.4 },
+    sheetSubtitle: { fontSize: 13, lineHeight: 18, marginTop: 4 },
+    sheetContent: { paddingHorizontal: 20, paddingBottom: 42 },
+    detailSummary: {
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: theme.softGoldBorder,
+      padding: 17,
+    },
+    detailLabel: { fontSize: 11, fontWeight: '800', marginBottom: 6 },
+    detailTotal: { fontSize: 29, fontWeight: '900', letterSpacing: -0.5 },
+    breakdownTitle: {
+      fontSize: 17,
+      fontWeight: '900',
+      marginTop: 22,
+      marginBottom: 5,
+    },
+    breakdownRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 12,
+      borderBottomWidth: 1,
+      paddingVertical: 13,
+    },
+    breakdownLabel: { flex: 1, fontSize: 13 },
+    breakdownAmount: { fontSize: 13, fontWeight: '800' },
+    adminDetail: {
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.deepBorder,
+      padding: 15,
+      marginTop: 14,
+    },
+    adminDetailText: { fontSize: 13, fontWeight: '700', marginBottom: 12 },
+    cutoffWarning: {
+      flexDirection: 'row',
+      gap: 9,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: theme.goldBorder,
+      padding: 14,
+      marginTop: 12,
+    },
+    warningTitle: { fontSize: 13, fontWeight: '800' },
+    warningText: { fontSize: 12, lineHeight: 18, marginTop: 3 },
+    payButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderRadius: 14,
+      minHeight: 52,
+      padding: 15,
+      marginTop: 20,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    payButtonText: { fontSize: 16, fontWeight: '900' },
+    centered: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 48,
+      gap: 10,
+    },
+    emptyText: { fontSize: 15, textAlign: 'center' },
+    retryButton: {
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 10,
+    },
+    retryText: { fontSize: 14, fontWeight: '700' },
+  });

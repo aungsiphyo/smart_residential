@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -10,26 +10,42 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Image,
 } from 'react-native';
 import { AppText as Text, AppTextInput as TextInput } from './AppText';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
+import { useTheme } from '../context/ThemeContext';
 import useVoiceAssistant from '../hooks/useVoiceAssistant';
 import {
   sendFeedback as sendChatFeedback,
   sendMessage as sendAIMessage,
 } from '../services/chatService';
 import { containsMyanmarText, getMyanmarTextStyle } from '../theme/typography';
-import chatTheme from './chat/chatTheme';
+import { getTabBarMetrics } from '../navigation/tabConfig';
+import { getChatTheme } from './chat/chatTheme';
 
 const CHAT_BOB_DISTANCE = 8;
 const CHAT_BOB_DURATION = 1800;
 const CHAT_HEADER_HEIGHT = 60;
 const THINKING_DOTS = [0, 1, 2];
+const CHATBOT_LOGO = require('../assets/chatbot-home-logo.png');
+
+export function getFloatingChatPosition(
+  insets = {},
+  platform = Platform.OS,
+) {
+  const tabMetrics = getTabBarMetrics(Number(insets.bottom) || 0, platform);
+  return {
+    right: Math.max(Number(insets.right) || 0, 0) + 20,
+    bottom: tabMetrics.height + 18,
+  };
+}
 
 function ThinkingIndicator({ theme }) {
+  const styles = useMemo(() => createChatStyles(theme), [theme]);
   const dotAnims = useRef(
     THINKING_DOTS.map(() => new Animated.Value(0.35)),
   ).current;
@@ -119,6 +135,7 @@ function HistoryDrawer({
   topInset,
   bottomInset,
 }) {
+  const styles = useMemo(() => createChatStyles(theme), [theme]);
   return (
     <View
       style={[
@@ -255,8 +272,14 @@ export default function FloatingChat() {
     selectSession,
     deleteSession,
   } = useChat();
-  const theme = chatTheme;
+  const { theme: appTheme } = useTheme();
+  const theme = getChatTheme(appTheme);
+  const styles = useMemo(() => createChatStyles(theme), [theme]);
   const insets = useSafeAreaInsets();
+  const launcherPosition = useMemo(
+    () => getFloatingChatPosition(insets, Platform.OS),
+    [insets],
+  );
   const { user } = useAuth();
   const userName = (user?.fullname || user?.name || '').trim();
   const firstName = userName.split(' ')[0];
@@ -1081,7 +1104,10 @@ export default function FloatingChat() {
         </View>
       </Modal>
 
-      <View pointerEvents="box-none" style={styles.container}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.container, launcherPosition]}
+      >
         <Animated.View style={{ transform: [{ translateY }] }}>
           <Animated.View
             style={[
@@ -1095,6 +1121,7 @@ export default function FloatingChat() {
           />
 
           <TouchableOpacity
+            accessibilityRole="button"
             accessibilityLabel="Open chat"
             accessibilityHint="Opens assistant chat"
             onPress={toggle}
@@ -1102,12 +1129,17 @@ export default function FloatingChat() {
             style={[
               styles.fab,
               {
-                backgroundColor: theme.primary,
                 shadowColor: theme.primary,
               },
             ]}
           >
-            <Text style={styles.fabText}>💬</Text>
+            <Image
+              source={CHATBOT_LOGO}
+              resizeMode="contain"
+              accessible={false}
+              accessibilityIgnoresInvertColors
+              style={styles.fabLogo}
+            />
           </TouchableOpacity>
         </Animated.View>
       </View>
@@ -1115,439 +1147,438 @@ export default function FloatingChat() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    right: 16,
-    bottom: Platform.OS === 'ios' ? 98 : 84,
-    zIndex: 9999,
-  },
-  glow: {
-    position: 'absolute',
-    top: -4,
-    left: -4,
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowOffset: { width: 0, height: 7 },
-    shadowOpacity: 0.3,
-    shadowRadius: 9,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: chatTheme.primarySoft,
-  },
-  fabText: {
-    fontSize: 24,
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: chatTheme.overlay,
-  },
-  chatBox: {
-    height: '100%',
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
-    overflow: 'hidden',
-    shadowColor: chatTheme.shadow,
-    shadowOffset: { width: 0, height: -8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 24,
-  },
-  header: {
-    height: CHAT_HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 1,
-  },
-  menuButton: {
-    position: 'absolute',
-    left: 12,
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 1,
-  },
-  headerText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  closeButton: {
-    position: 'absolute',
-    right: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  historyLayer: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 20,
-  },
-  historyScrim: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: chatTheme.overlay,
-  },
-  historyPanel: {
-    width: 270,
-    height: '100%',
-    borderRightWidth: 1,
-    paddingHorizontal: 12,
-    paddingTop: 14,
-    paddingBottom: 12,
-    shadowColor: chatTheme.shadow,
-    shadowOffset: { width: 8, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    elevation: 24,
-  },
-  historyHeader: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  historyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  historyClose: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: chatTheme.border,
-    backgroundColor: chatTheme.card,
-  },
-  newChatButton: {
-    minHeight: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    justifyContent: 'center',
-  },
-  newChatText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  historyList: {
-    paddingBottom: 10,
-  },
-  historyItem: {
-    minHeight: 60,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginBottom: 8,
-  },
-  historyItemTextWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  historyItemTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 20,
-  },
-  myanmarHistoryItemTitle: {
-    lineHeight: 26,
-  },
-  historyItemPreview: {
-    marginTop: 2,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  myanmarHistoryItemPreview: {
-    lineHeight: 23,
-  },
-  historyDelete: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 6,
-  },
-  messages: {
-    flex: 1,
-    padding: 12,
-    backgroundColor: chatTheme.background,
-  },
-  messageRow: {
-    marginVertical: 6,
-    padding: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    maxWidth: '85%',
-  },
-  thinkingRow: {
-    alignSelf: 'flex-start',
-  },
-  thinkingBubble: {
-    minHeight: 42,
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  thinkingText: {
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 20,
-  },
-  myanmarThinkingText: {
-    lineHeight: 24,
-  },
-  thinkingDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  thinkingDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  userMsg: {
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
-  },
-  botMsg: {
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
-  },
-  messageText: {
-    fontSize: 14,
-    lineHeight: 21,
-  },
-  myanmarMessageText: {
-    lineHeight: 27,
-  },
-  messageMeta: {
-    marginTop: 6,
-    fontSize: 11,
-    lineHeight: 16,
-  },
-  feedbackRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
-  },
-  feedbackButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  feedbackButtonDisabled: {
-    opacity: 0.65,
-  },
-  controlDisabled: {
-    opacity: 0.65,
-  },
-  feedbackModalLayer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    backgroundColor: chatTheme.overlay,
-  },
-  feedbackModalScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: chatTheme.overlay,
-  },
-  feedbackModalCard: {
-    width: '100%',
-    maxWidth: 420,
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: chatTheme.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 24,
-    elevation: 24,
-  },
-  feedbackModalTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12 },
-  feedbackTypeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  feedbackTypeChip: {
-    borderWidth: 1,
-    borderRadius: 18,
-    paddingHorizontal: 11,
-    paddingVertical: 7,
-  },
-  feedbackTypeText: { fontSize: 12, fontWeight: '700' },
-  feedbackComment: {
-    minHeight: 90,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    textAlignVertical: 'top',
-  },
-  feedbackModalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 14,
-  },
-  feedbackCancel: {
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  feedbackSubmit: {
-    minWidth: 120,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  feedbackSubmitText: { fontSize: 13, fontWeight: '800' },
-  inputRow: {
-    flexDirection: 'row',
-    padding: 12,
-    alignItems: 'flex-end',
-    backgroundColor: chatTheme.surface,
-    borderTopWidth: 1,
-    borderTopColor: chatTheme.border,
-  },
-  input: {
-    flex: 1,
-    borderRadius: 22,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
-    minHeight: 44,
-    maxHeight: 96,
-    fontSize: 16,
-    lineHeight: 24,
-    includeFontPadding: true,
-  },
-  micButton: {
-    marginLeft: 8,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  sendButton: {
-    marginLeft: 8,
-    width: 52,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleWrap: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerSubText: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-    opacity: 0.85,
-  },
-  myanmarHeaderSubText: {
-    lineHeight: 21,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 16,
-  },
-  emptyIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    shadowColor: chatTheme.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  emptyGreeting: {
-    fontSize: 20,
-    fontWeight: '700',
-    textAlign: 'center',
-    lineHeight: 28,
-    marginBottom: 8,
-  },
-  emptyHint: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-  },
-  quickChips: {
-    width: '100%',
-    gap: 8,
-  },
-  quickChip: {
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  quickChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  myanmarQuickChipText: {
-    lineHeight: 24,
-  },
-});
+const createChatStyles = theme =>
+  StyleSheet.create({
+    container: {
+      position: 'absolute',
+      zIndex: 9999,
+    },
+    glow: {
+      position: 'absolute',
+      top: -4,
+      left: -4,
+      width: 64,
+      height: 64,
+      borderRadius: 32,
+    },
+    fab: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.3,
+      shadowRadius: 9,
+      elevation: 8,
+      overflow: 'hidden',
+    },
+    fabLogo: {
+      width: 64,
+      height: 64,
+    },
+    modalContainer: {
+      flex: 1,
+      justifyContent: 'flex-end',
+      backgroundColor: theme.overlay,
+    },
+    chatBox: {
+      height: '100%',
+      borderTopLeftRadius: 0,
+      borderTopRightRadius: 0,
+      overflow: 'hidden',
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: -8 },
+      shadowOpacity: 0.45,
+      shadowRadius: 20,
+      elevation: 24,
+    },
+    header: {
+      height: CHAT_HEADER_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderBottomWidth: 1,
+    },
+    menuButton: {
+      position: 'absolute',
+      left: 12,
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 22,
+      borderWidth: 1,
+    },
+    headerText: {
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    closeButton: {
+      position: 'absolute',
+      right: 12,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    historyLayer: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      zIndex: 20,
+    },
+    historyScrim: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: theme.overlay,
+    },
+    historyPanel: {
+      width: 270,
+      height: '100%',
+      borderRightWidth: 1,
+      paddingHorizontal: 12,
+      paddingTop: 14,
+      paddingBottom: 12,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 8, height: 0 },
+      shadowOpacity: 0.5,
+      shadowRadius: 18,
+      elevation: 24,
+    },
+    historyHeader: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    historyTitle: {
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    historyClose: {
+      width: 44,
+      height: 44,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.card,
+    },
+    newChatButton: {
+      minHeight: 42,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingHorizontal: 12,
+      marginBottom: 10,
+      justifyContent: 'center',
+    },
+    newChatText: {
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    historyList: {
+      paddingBottom: 10,
+    },
+    historyItem: {
+      minHeight: 60,
+      borderRadius: 12,
+      borderWidth: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      marginBottom: 8,
+    },
+    historyItemTextWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    historyItemTitle: {
+      fontSize: 14,
+      fontWeight: '700',
+      lineHeight: 20,
+    },
+    myanmarHistoryItemTitle: {
+      lineHeight: 26,
+    },
+    historyItemPreview: {
+      marginTop: 2,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    myanmarHistoryItemPreview: {
+      lineHeight: 23,
+    },
+    historyDelete: {
+      width: 28,
+      height: 28,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: 6,
+    },
+    messages: {
+      flex: 1,
+      padding: 12,
+      backgroundColor: theme.background,
+    },
+    messageRow: {
+      marginVertical: 6,
+      padding: 10,
+      borderRadius: 16,
+      borderWidth: 1,
+      maxWidth: '85%',
+    },
+    thinkingRow: {
+      alignSelf: 'flex-start',
+    },
+    thinkingBubble: {
+      minHeight: 42,
+      borderRadius: 14,
+      borderWidth: 1,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    thinkingText: {
+      fontSize: 13,
+      fontWeight: '600',
+      lineHeight: 20,
+    },
+    myanmarThinkingText: {
+      lineHeight: 24,
+    },
+    thinkingDots: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    thinkingDot: {
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
+    },
+    userMsg: {
+      alignSelf: 'flex-end',
+      borderBottomRightRadius: 4,
+    },
+    botMsg: {
+      alignSelf: 'flex-start',
+      borderBottomLeftRadius: 4,
+    },
+    messageText: {
+      fontSize: 14,
+      lineHeight: 21,
+    },
+    myanmarMessageText: {
+      lineHeight: 27,
+    },
+    messageMeta: {
+      marginTop: 6,
+      fontSize: 11,
+      lineHeight: 16,
+    },
+    feedbackRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 8,
+    },
+    feedbackButton: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    feedbackButtonDisabled: {
+      opacity: 0.65,
+    },
+    controlDisabled: {
+      opacity: 0.65,
+    },
+    feedbackModalLayer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      backgroundColor: theme.overlay,
+    },
+    feedbackModalScrim: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: theme.overlay,
+    },
+    feedbackModalCard: {
+      width: '100%',
+      maxWidth: 420,
+      borderWidth: 1,
+      borderRadius: 16,
+      padding: 16,
+      shadowColor: theme.shadow,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.45,
+      shadowRadius: 24,
+      elevation: 24,
+    },
+    feedbackModalTitle: { fontSize: 17, fontWeight: '800', marginBottom: 12 },
+    feedbackTypeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
+    },
+    feedbackTypeChip: {
+      borderWidth: 1,
+      borderRadius: 18,
+      paddingHorizontal: 11,
+      paddingVertical: 7,
+    },
+    feedbackTypeText: { fontSize: 12, fontWeight: '700' },
+    feedbackComment: {
+      minHeight: 90,
+      borderWidth: 1,
+      borderRadius: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      textAlignVertical: 'top',
+    },
+    feedbackModalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 10,
+      marginTop: 14,
+    },
+    feedbackCancel: {
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    feedbackSubmit: {
+      minWidth: 120,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    feedbackSubmitText: { fontSize: 13, fontWeight: '800' },
+    inputRow: {
+      flexDirection: 'row',
+      padding: 12,
+      alignItems: 'flex-end',
+      backgroundColor: theme.surface,
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    input: {
+      flex: 1,
+      borderRadius: 22,
+      borderWidth: 1,
+      paddingHorizontal: 12,
+      paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+      minHeight: 44,
+      maxHeight: 96,
+      fontSize: 16,
+      lineHeight: 24,
+      includeFontPadding: true,
+    },
+    micButton: {
+      marginLeft: 8,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+    },
+    sendButton: {
+      marginLeft: 8,
+      width: 52,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    headerTitleWrap: {
+      alignItems: 'center',
+      flex: 1,
+    },
+    headerSubText: {
+      fontSize: 11,
+      fontWeight: '500',
+      marginTop: 1,
+      opacity: 0.85,
+    },
+    myanmarHeaderSubText: {
+      lineHeight: 21,
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      paddingTop: 32,
+      paddingBottom: 16,
+    },
+    emptyIconWrap: {
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+      borderWidth: 1,
+      shadowColor: theme.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.18,
+      shadowRadius: 10,
+      elevation: 5,
+    },
+    emptyGreeting: {
+      fontSize: 20,
+      fontWeight: '700',
+      textAlign: 'center',
+      lineHeight: 28,
+      marginBottom: 8,
+    },
+    emptyHint: {
+      fontSize: 13,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 20,
+    },
+    quickChips: {
+      width: '100%',
+      gap: 8,
+    },
+    quickChip: {
+      borderRadius: 14,
+      borderWidth: 1,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    quickChipText: {
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    myanmarQuickChipText: {
+      lineHeight: 24,
+    },
+  });

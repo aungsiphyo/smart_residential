@@ -6,20 +6,23 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationContext';
 
+const DEFAULT_BRAND_IMAGE = require('../assets/app-icon-master.png');
+
 export default function TopBar({
   navigation,
   variant = 'main',
   title,
   themeOverride,
   onBackPress,
-  brandImageSource,
-  brandLabel = 'PrimeCity',
+  brandImageSource = DEFAULT_BRAND_IMAGE,
+  brandLabel = 'Prime City',
 }) {
   const { theme: appTheme } = useTheme();
   const theme = themeOverride || appTheme;
   const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
   const isStack = variant === 'stack';
+  const resolvedBrandImage = brandImageSource || DEFAULT_BRAND_IMAGE;
 
   return (
     <View
@@ -32,7 +35,7 @@ export default function TopBar({
         },
       ]}
     >
-      <View style={[styles.row, brandImageSource && styles.brandedRow]}>
+      <View style={[styles.row, !isStack && styles.brandedRow]}>
         {isStack ? (
           <TouchableOpacity
             style={[
@@ -52,41 +55,28 @@ export default function TopBar({
           </TouchableOpacity>
         ) : (
           <View style={styles.brand}>
-            {brandImageSource ? (
-              <View
-                style={[
-                  styles.logoImageFrame,
-                  {
-                    backgroundColor: theme.background,
-                    borderColor: theme.primary,
-                  },
-                ]}
-              >
-                <Image
-                  source={brandImageSource}
-                  style={styles.logoImage}
-                  resizeMode="contain"
-                  accessibilityIgnoresInvertColors
-                />
-              </View>
-            ) : (
-              <View
-                style={[
-                  styles.logoIcon,
-                  {
-                    backgroundColor: theme.primary,
-                    borderColor: theme.primary,
-                  },
-                  themeOverride && styles.billControlBorder,
-                ]}
-              >
-                <Ionicons name="business" size={16} color={theme.primaryText} />
-              </View>
-            )}
+            <View
+              style={[
+                styles.logoImageFrame,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: theme.primary,
+                },
+              ]}
+            >
+              <Image
+                source={resolvedBrandImage}
+                style={styles.logoImage}
+                resizeMode="contain"
+                accessible
+                accessibilityLabel={`${brandLabel} logo`}
+                accessibilityIgnoresInvertColors
+              />
+            </View>
             <Text
               style={[
                 styles.logo,
-                brandImageSource && styles.brandedLogo,
+                styles.brandedLogo,
                 { color: theme.text },
               ]}
             >
@@ -178,13 +168,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  logoIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   logoImageFrame: {
     width: 46,

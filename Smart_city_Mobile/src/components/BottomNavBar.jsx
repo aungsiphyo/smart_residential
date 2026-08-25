@@ -61,13 +61,15 @@ export default function BottomNavBar({
               onPress={() => goToTab(tab.name)}
               onLongPress={() => longPressTab(tab.name)}
               activeOpacity={0.85}
-              accessibilityRole="button"
+              hitSlop={{ top: 4, bottom: 4, left: 3, right: 3 }}
+              accessibilityRole="tab"
               accessibilityLabel={tab.accessibilityLabel}
+              accessibilityHint="Opens emergency assistance"
               accessibilityState={{ selected: focused }}
             >
               <View style={[styles.sosFab, focused && styles.sosFabFocused]}>
                 <Ionicons
-                  name={tab.activeIcon}
+                  name={focused ? tab.activeIcon : tab.inactiveIcon}
                   size={TAB_LAYOUT.sosIconSize}
                   color="#FFFFFF"
                 />
@@ -83,6 +85,7 @@ export default function BottomNavBar({
             onPress={() => goToTab(tab.name)}
             onLongPress={() => longPressTab(tab.name)}
             activeOpacity={0.75}
+            hitSlop={{ top: 4, bottom: 4, left: 3, right: 3 }}
             accessibilityRole="tab"
             accessibilityLabel={`${tab.label} tab`}
             accessibilityState={{ selected: focused }}
